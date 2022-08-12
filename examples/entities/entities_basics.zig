@@ -13,7 +13,7 @@ pub fn main() !void {
     var world = flecs.c.ecs_init().?;
 
     // Create an entity with name Bob
-    const bob = flecs.c.ecs_entity_init(world, &std.mem.zeroInit(flecs.c.EcsEntityDesc, .{ .name = "Bob", .id = flecs.c.ecs_new_id(world) }));
+    const bob = flecs.ecs_new_entity(world, "Bob");
 
     // The set operation finds or creates a component, and sets it.
     flecs.ecs_set(world, bob, &Position { .x = 10, .y = 20 });
@@ -35,7 +35,7 @@ pub fn main() !void {
     }
 
     // Create another named entity
-    const alice = flecs.c.ecs_entity_init(world, &std.mem.zeroInit(flecs.c.EcsEntityDesc, .{ .name = "Alice", .id = flecs.c.ecs_new_id(world) }));
+    const alice = flecs.ecs_new_entity(world, "Alice");
     flecs.ecs_set(world, alice, &Position { .x = 10, .y = 20 });
     flecs.ecs_add(world, bob, Walking);
 
@@ -55,8 +55,8 @@ pub fn main() !void {
     flecs.ecs_set_pair(world, alice, Likes{ .amount = 10, }, bob);
     flecs.ecs_set_pair(world, alice, Likes{ .amount = 5, }, Apples);
 
-    if (flecs.ecs_get_pair(world, alice, Likes, bob)) |likes| {
-        std.log.debug("How much does Alice like bob? {d}", .{ likes.amount });
+    if (flecs.ecs_get_pair(world, alice, Likes, bob)) |b| {
+        std.log.debug("How much does Alice like bob? {d}", .{ b.amount });
     }
 
     if (flecs.ecs_get_pair(world, alice, Likes, flecs.c.Constants.EcsWildcard)) |likes| {

@@ -30,7 +30,7 @@ fn ecs_cast(comptime T: type, val: ?*const anyopaque) *const T {
     return @ptrCast(*const T, @alignCast(@alignOf(T), val));
 }
 
-/// Returns the EcsId of the given type
+/// Returns the EcsId of the given type.
 fn ecs_id(world: *c.EcsWorld, comptime T: type) c.EcsId {
     if (@sizeOf(T) == 0) {
         var desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
@@ -44,8 +44,22 @@ fn ecs_id(world: *c.EcsWorld, comptime T: type) c.EcsId {
     }
 }
 
+/// Returns an EcsId for the given pair of EcsIds.
 fn ecs_pair(pred: c.EcsId, obj: c.EcsId) c.EcsId {
     return c.Constants.ECS_PAIR | ecs_entity_comb(obj, pred);
+}
+
+// - New
+
+/// Returns a new entity.
+pub fn ecs_new(world: *c.EcsWorld) c.EcsEntity {
+    return c.ecs_new_id(world);
+}
+
+/// Returns a new entity with the given name.
+pub fn ecs_new_entity(world: *c.EcsWorld, name: [:0]const u8) c.EcsEntity {
+    const desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = name, .id = c.ecs_new_id(world) });
+    return c.ecs_entity_init(world, &desc);
 }
 
 // - Add
