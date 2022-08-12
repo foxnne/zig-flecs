@@ -4,7 +4,7 @@ pub const c = @import("c.zig");
 // - Utility Functions
 
 /// Returns the base type of the given type, useful for pointers.
-fn BaseType(comptime T: type) type {
+pub fn BaseType(comptime T: type) type {
     switch (@typeInfo(T)) {
         .Pointer => |info| switch (info.size) {
             .One => switch (@typeInfo(info.child)) {
@@ -27,12 +27,12 @@ fn ecs_entity_comb(lo: c.EcsId, hi: c.EcsId) c.EcsId {
 }
 
 /// Casts the anyopaque pointer to a const pointer of the given type.
-fn ecs_cast(comptime T: type, val: ?*const anyopaque) *const T {
+pub fn ecs_cast(comptime T: type, val: ?*const anyopaque) *const T {
     return @ptrCast(*const T, @alignCast(@alignOf(T), val));
 }
 
 /// Returns the EcsId of the given type.
-fn ecs_id(world: *c.EcsWorld, comptime T: type) c.EcsId {
+pub fn ecs_id(world: *c.EcsWorld, comptime T: type) c.EcsId {
     if (@sizeOf(T) == 0) {
         var desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
         return c.ecs_entity_init(world, &desc);
@@ -46,12 +46,12 @@ fn ecs_id(world: *c.EcsWorld, comptime T: type) c.EcsId {
 }
 
 /// Returns an EcsId for the given pair of EcsIds.
-fn ecs_pair(pred: c.EcsId, obj: c.EcsId) c.EcsId {
+pub fn ecs_pair(pred: c.EcsId, obj: c.EcsId) c.EcsId {
     return c.Constants.ECS_PAIR | ecs_entity_comb(obj, pred);
 }
 
 /// Returns an EcsId for the given pair.
-fn ecs_pair_id(world: *c.EcsWorld, first: anytype, second: anytype) c.EcsId {
+pub fn ecs_pair_id(world: *c.EcsWorld, first: anytype, second: anytype) c.EcsId {
     const First = @TypeOf(first);
     const Second = @TypeOf(second);
 
