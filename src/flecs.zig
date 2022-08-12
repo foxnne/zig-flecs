@@ -127,6 +127,35 @@ pub fn ecs_add_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, sec
     c.ecs_remove_id(world, entity, pair_id);
 }
 
+// - Override
+
+/// Overrides the component on the entity.
+pub fn ecs_override(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) void {
+    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
+    c.ecs_override_id(world, entity, ecs_id(world, T));
+}
+
+/// Overrides the pair on the entity.
+///
+/// first = EcsEntity or type
+/// second = EcsEntity or type
+pub fn ecs_override_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
+    const First = @TypeOf(first);
+    const Second = @TypeOf(second);
+
+    const first_type_info = @typeInfo(First);
+    const second_type_info = @typeInfo(Second);
+
+    std.debug.assert(First == c.EcsEntity or first_type_info == .Type);
+    std.debug.assert(Second == c.EcsEntity or second_type_info == .Type);
+
+    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
+    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
+    const pair_id = ecs_pair(first_id, second_id);
+
+    c.ecs_override_id(world, entity, pair_id);
+}
+
 // - Set
 
 /// Sets the component on the entity. If the component is not already added, it will automatically be added and set.
