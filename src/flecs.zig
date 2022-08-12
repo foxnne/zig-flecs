@@ -1,7 +1,8 @@
 const std = @import("std");
-pub const c = @import("c.zig");
+const c = @import("c.zig");
 
-// - Utility Functions
+// Import wrapper function
+pub usingnamespace c;
 
 /// Returns the base type of the given type, useful for pointers.
 pub fn BaseType(comptime T: type) type {
@@ -21,11 +22,6 @@ pub fn BaseType(comptime T: type) type {
     @compileError("Expected pointer or optional pointer, found '" ++ @typeName(T) ++ "'");
 }
 
-/// Combines two EcsIds into the lo and hi bits of an EcsId.
-fn ecs_entity_comb(lo: c.EcsId, hi: c.EcsId) c.EcsId {
-    return (hi << @as(u32, 32)) + @intCast(u64, @truncate(u32, lo));
-}
-
 /// Casts the anyopaque pointer to a const pointer of the given type.
 pub fn ecs_cast(comptime T: type, val: ?*const anyopaque) *const T {
     return @ptrCast(*const T, @alignCast(@alignOf(T), val));
@@ -36,18 +32,22 @@ pub fn ecs_cast_mut(comptime T: type, val: ?*anyopaque) *T {
     return @ptrCast(*T, @alignCast(@alignOf(T), val));
 }
 
-/// Returns the EcsId of the given type.
-pub fn ecs_id(world: *c.EcsWorld, comptime T: type) c.EcsId {
-    if (@sizeOf(T) == 0) {
-        var desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
-        return c.ecs_entity_init(world, &desc);
-    } else {
-        var entity_desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
-        var comp_desc = std.mem.zeroInit(c.EcsComponentDesc, .{ .entity = c.ecs_entity_init(world, &entity_desc) });
-        comp_desc.type.alignment = @alignOf(T);
-        comp_desc.type.size = @sizeOf(T);
-        return c.ecs_component_init(world, &comp_desc);
-    }
+/// Returns a pointer to the EcsId of the given type.
+pub fn ecs_id_handle(comptime T: type) *c.EcsId {
+    _ = T;
+    return &(struct {
+        pub var handle: c.EcsId = std.math.maxInt(c.EcsId);
+    }.handle);
+}
+
+/// Returns the id assigned to the given type.
+pub fn ecs_id(comptime T: type) c.EcsId {
+    return ecs_id_handle(T).*;
+}
+
+/// Combines two EcsIds into the lo and hi bits of an EcsId.
+fn ecs_entity_comb(lo: c.EcsId, hi: c.EcsId) c.EcsId {
+    return (hi << @as(u32, 32)) + @intCast(u64, @truncate(u32, lo));
 }
 
 /// Returns an EcsId for the given pair of EcsIds.
@@ -56,7 +56,7 @@ pub fn ecs_pair(pred: c.EcsId, obj: c.EcsId) c.EcsId {
 }
 
 /// Returns an EcsId for the given pair.
-pub fn ecs_pair_id(world: *c.EcsWorld, first: anytype, second: anytype) c.EcsId {
+pub fn ecs_pair_id(first: anytype, second: anytype) c.EcsId {
     const First = @TypeOf(first);
     const Second = @TypeOf(second);
 
@@ -66,9 +66,27 @@ pub fn ecs_pair_id(world: *c.EcsWorld, first: anytype, second: anytype) c.EcsId 
     std.debug.assert(First == c.EcsEntity or first_type_info == .Type);
     std.debug.assert(Second == c.EcsEntity or second_type_info == .Type);
 
-    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
+    const first_id = if (First == c.EcsEntity) first else ecs_id(First);
+    const second_id = if (Second == c.EcsEntity) second else ecs_id(Second);
     return ecs_pair(first_id, second_id);
+}
+
+/// Registers the given type as a new component.
+pub fn ecs_component(world: *c.EcsWorld, comptime T: type) void {
+    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
+
+    var handle = ecs_id_handle(T);
+
+    if (@sizeOf(T) == 0) {
+        var desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
+        handle.* = c.ecs_entity_init(world, &desc);
+    } else {
+        var entity_desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T)});
+        var component_desc = std.mem.zeroInit(c.EcsComponentDesc, .{.entity = c.ecs_entity_init(world, &entity_desc)});
+        component_desc.type.alignment = @alignOf(T);
+        component_desc.type.size = @sizeOf(T);
+        handle.* = c.ecs_component_init(world, &component_desc);
+    }
 }
 
 // - New
@@ -77,8 +95,8 @@ pub fn ecs_pair_id(world: *c.EcsWorld, first: anytype, second: anytype) c.EcsId 
 pub fn ecs_new(world: *c.EcsWorld, comptime T: ?type) c.EcsEntity {
     if (T) |Type| {
         std.debug.assert(@typeInfo(Type) == .Struct or @typeInfo(Type) == .Type);
-        return c.ecs_new_w_id(world, ecs_id(world, Type));
-    } 
+        return c.ecs_new_w_id(world, ecs_id(Type));
+    }
 
     return c.ecs_new_id(world);
 }
@@ -88,12 +106,12 @@ pub fn ecs_new_w_pair(world: *c.EcsWorld, first: anytype, second: anytype) c.Ecs
     return c.ecs_new_w_id(world, ecs_pair_id(first, second));
 }
 
-/// Creates count entities in bulk with the given component, returning an array of those entities. 
+/// Creates count entities in bulk with the given component, returning an array of those entities.
 /// Pass null for the component if none is desired.
 pub fn ecs_bulk_new(world: *c.EcsWorld, comptime Component: ?type, count: i32) []const c.EcsEntity {
     if (Component) |T| {
         std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
-        return c.ecs_bulk_new_w_id(world, ecs_id(world, T), count)[0..@intCast(usize, count)];
+        return c.ecs_bulk_new_w_id(world, ecs_id(T), count)[0..@intCast(usize, count)];
     }
 
     return c.ecs_bulk_new_w_id(world, 0, count)[0..@intCast(usize, count)];
@@ -110,7 +128,7 @@ pub fn ecs_new_entity(world: *c.EcsWorld, name: [:0]const u8) c.EcsEntity {
 /// Adds a component to the entity. If the type is a non-zero struct, the values are default.
 pub fn ecs_add(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) void {
     std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
-    c.ecs_add_id(world, entity, ecs_id(world, T));
+    c.ecs_add_id(world, entity, ecs_id(T));
 }
 
 /// Adds the pair to the entity.
@@ -132,7 +150,7 @@ pub fn ecs_remove(world: *c.EcsWorld, entity: c.EcsEntity, t: anytype) void {
 
     std.debug.assert(T == c.EcsEntity or type_info == .Type);
 
-    const id = if (T == c.EcsEntity) t else ecs_id(world, t);
+    const id = if (T == c.EcsEntity) t else ecs_id(t);
     c.ecs_remove_id(world, entity, id);
 }
 
@@ -149,7 +167,7 @@ pub fn ecs_remove_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, 
 /// Overrides the component on the entity.
 pub fn ecs_override(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) void {
     std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
-    c.ecs_override_id(world, entity, ecs_id(world, T));
+    c.ecs_override_id(world, entity, ecs_id(T));
 }
 
 /// Overrides the pair on the entity.
@@ -174,7 +192,7 @@ pub fn ecs_set(world: *c.EcsWorld, entity: c.EcsEntity, t: anytype) void {
     std.debug.assert(@typeInfo(@TypeOf(t)) == .Pointer or @typeInfo(@TypeOf(t)) == .Struct);
     const T = BaseType(@TypeOf(t));
     const ptr = if (@typeInfo(@TypeOf(t)) == .Pointer) t else &t;
-    _ = c.ecs_set_id(world, entity, ecs_id(world, T), @sizeOf(T), ptr);
+    _ = c.ecs_set_id(world, entity, ecs_id(T), @sizeOf(T), ptr);
 }
 
 /// Sets the component on the first element of the pair. If the component is not already added, it will automatically be added and set.
@@ -193,8 +211,8 @@ pub fn ecs_set_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, sec
 
     const FirstT = BaseType(First);
 
-    const first_id = ecs_id(world, FirstT);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
+    const first_id = ecs_id(FirstT);
+    const second_id = if (Second == c.EcsEntity) second else ecs_id(Second);
     const pair_id = ecs_pair(first_id, second_id);
 
     const ptr = if (first_type_info == .Pointer) first else &first;
@@ -218,8 +236,8 @@ pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
     const SecondT = BaseType(Second);
 
-    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
-    const second_id = ecs_id(world, SecondT);
+    const first_id = if (First == c.EcsEntity) first else ecs_id(First);
+    const second_id = ecs_id(SecondT);
     const pair_id = ecs_pair(second_id, first_id);
 
     const ptr = if (second_type_info == .Pointer) second else &second;
@@ -232,7 +250,7 @@ pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 /// Gets an optional pointer to the given component type on the entity.
 pub fn ecs_get(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) ?*const T {
     std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
-    if (c.ecs_get_id(world, entity, ecs_id(world, T))) |ptr| {
+    if (c.ecs_get_id(world, entity, ecs_id(T))) |ptr| {
         return ecs_cast(T, ptr);
     }
     return null;
@@ -250,8 +268,8 @@ pub fn ecs_get_pair(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: typ
 
     std.debug.assert(second_type_info == .Type or Second == c.EcsEntity);
 
-    const first_id = ecs_id(world, First);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
+    const first_id = ecs_id(First);
+    const second_id = if (Second == c.EcsEntity) second else ecs_id(Second);
 
     const pair_id = ecs_pair(first_id, second_id);
 
@@ -273,8 +291,8 @@ pub fn ecs_get_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
     std.debug.assert(first_type_info == .Type or First == c.EcsEntity);
 
-    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
-    const second_id = ecs_id(world, Second);
+    const first_id = if (First == c.EcsEntity) first else ecs_id(First);
+    const second_id = ecs_id(Second);
 
     const pair_id = ecs_pair(second_id, first_id);
 
@@ -286,9 +304,27 @@ pub fn ecs_get_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
 // - Iterators
 
+/// Returns an optional pointer for the type given the field location.
 pub fn ecs_field(it: *c.EcsIter, comptime T: type, index: usize) ?*T {
     if (c.ecs_field_w_size(it, @sizeOf(T), @intCast(i32, index))) |ptr| {
         return ecs_cast_mut(T, ptr);
     }
     return null;
+}
+
+// - Utilities for commonly used operations
+
+/// Returns a pair id for isa e.
+pub fn ecs_isa(world: *c.EcsWorld, e: anytype) c.EcsId {
+    return ecs_pair_id(world, c.Constants.EcsIsA, e);
+}
+
+/// Returns a pair id for child of e.
+pub fn ecs_childof(world: *c.EcsWorld, e: anytype) c.EcsId {
+    return ecs_pair_id(world, c.Constants.EcsChildOf, e);
+}
+
+/// Returns a pair id for depends on e.
+pub fn ecs_dependson(world: *c.EcsWorld, e: anytype) c.EcsId {
+    return ecs_pair_id(world, c.Constants.EcsDependsOn, e);
 }
