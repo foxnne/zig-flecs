@@ -150,7 +150,7 @@ pub fn ecs_remove(world: *c.EcsWorld, entity: c.EcsEntity, t: anytype) void {
 
     std.debug.assert(T == c.EcsEntity or type_info == .Type);
 
-    const id = if (T == c.EcsEntity) t else ecs_id(t);
+    const id = if (T == c.EcsEntity) t else ecs_id(T);
     c.ecs_remove_id(world, entity, id);
 }
 
