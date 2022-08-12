@@ -1,0 +1,125 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "options": {
+        "env": {
+            "ZIG_SYSTEM_LINKER_HACK": "1"
+        }
+    },
+    "tasks": [
+        {
+            "label": "Build Project",
+            "type": "shell",
+            "command": "zig build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+        },
+        {
+            "label": "Build and Run Current Example",
+            "type": "shell",
+            "command": "zig build ${fileBasenameNoExtension}",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "Build All Examples",
+            "type": "shell",
+            "command": "zig build all_examples",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "Update Flecs",
+            "type": "shell",
+            "command": "zig build update_flecs",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "Test Project",
+            "type": "shell",
+            "command": "zig build test",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "Build and Run Project",
+            "type": "shell",
+            "command": "zig build run",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "clear": true
+            }
+        },
+        {
+            "label": "Build and Run Current File",
+            "type": "shell",
+            "command": "zig run ${file}",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "presentation": {
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Build and Run Tests in Current File",
+            "type": "shell",
+            "command": "zig test ${file}",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "presentation": {
+                "clear": true
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+    ]
+}
