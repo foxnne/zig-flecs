@@ -21,6 +21,7 @@ fn BaseType(comptime T: type) type {
     @compileError("Expected pointer or optional pointer, found '" ++ @typeName(T) ++ "'");
 }
 
+/// Combines two EcsIds into the lo and hi bits of an EcsId.
 fn ecs_entity_comb(lo: c.EcsId, hi: c.EcsId) c.EcsId {
     return (hi << @as(u32, 32)) + @intCast(u64, @truncate(u32, lo));
 }
@@ -152,6 +153,13 @@ pub fn ecs_override(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) v
 /// second = EcsEntity or type
 pub fn ecs_override_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
     c.ecs_override_id(world, entity, ecs_pair_id(world, first, second));
+}
+
+// Bulk remove/delete
+
+/// Deletes all children from parent entity.
+pub fn ecs_delete_children(world: *c.EcsWorld, parent: c.EcsEntity) void {
+    c.ecs_delete_with(world, ecs_pair_id(world, c.Constants.EcsChildOf, parent));
 }
 
 // - Set
