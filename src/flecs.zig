@@ -49,11 +49,48 @@ fn ecs_pair(pred: c.EcsId, obj: c.EcsId) c.EcsId {
     return c.Constants.ECS_PAIR | ecs_entity_comb(obj, pred);
 }
 
+/// Returns an EcsId for the given pair.
+fn ecs_pair_id(world: *c.EcsWorld, first: anytype, second: anytype) c.EcsId {
+    const First = @TypeOf(first);
+    const Second = @TypeOf(second);
+
+    const first_type_info = @typeInfo(First);
+    const second_type_info = @typeInfo(Second);
+
+    std.debug.assert(First == c.EcsEntity or first_type_info == .Type);
+    std.debug.assert(Second == c.EcsEntity or second_type_info == .Type);
+
+    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
+    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
+    return ecs_pair(first_id, second_id);
+}
+
 // - New
 
-/// Returns a new entity.
-pub fn ecs_new(world: *c.EcsWorld) c.EcsEntity {
+/// Returns a new entity with the given component. Pass null if no component is desired.
+pub fn ecs_new(world: *c.EcsWorld, comptime T: ?type) c.EcsEntity {
+    if (T) |Type| {
+        std.debug.assert(@typeInfo(Type) == .Struct or @typeInfo(Type) == .Type);
+        return c.ecs_new_w_id(world, ecs_id(world, Type));
+    } 
+
     return c.ecs_new_id(world);
+}
+
+/// Returns a new entity with the given pair.
+pub fn ecs_new_w_pair(world: *c.EcsWorld, first: anytype, second: anytype) c.EcsEntity {
+    return c.ecs_new_w_id(world, ecs_pair_id(first, second));
+}
+
+/// Creates count entities in bulk with the given component, returning an array of those entities. 
+/// Pass null for the component if none is desired.
+pub fn ecs_bulk_new(world: *c.EcsWorld, comptime Component: ?type, count: i32) []const c.EcsEntity {
+    if (Component) |T| {
+        std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
+        return c.ecs_bulk_new_w_id(world, ecs_id(world, T), count)[0..@intCast(usize, count)];
+    }
+
+    return c.ecs_bulk_new_w_id(world, 0, count)[0..@intCast(usize, count)];
 }
 
 /// Returns a new entity with the given name.
@@ -75,20 +112,7 @@ pub fn ecs_add(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) void {
 /// first = EcsEntity or type
 /// second = EcsEntity or type
 pub fn ecs_add_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
-    const First = @TypeOf(first);
-    const Second = @TypeOf(second);
-
-    const first_type_info = @typeInfo(First);
-    const second_type_info = @typeInfo(Second);
-
-    std.debug.assert(First == c.EcsEntity or first_type_info == .Type);
-    std.debug.assert(Second == c.EcsEntity or second_type_info == .Type);
-
-    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
-    const pair_id = ecs_pair(first_id, second_id);
-
-    c.ecs_add_id(world, entity, pair_id);
+    c.ecs_add_id(world, entity, ecs_pair_id(world, first, second));
 }
 
 // - Remove
@@ -110,21 +134,8 @@ pub fn ecs_remove(world: *c.EcsWorld, entity: c.EcsEntity, t: anytype) void {
 ///
 /// first = EcsEntity or type
 /// second = EcsEntity or type
-pub fn ecs_add_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
-    const First = @TypeOf(first);
-    const Second = @TypeOf(second);
-
-    const first_type_info = @typeInfo(First);
-    const second_type_info = @typeInfo(Second);
-
-    std.debug.assert(First == c.EcsEntity or first_type_info == .Type);
-    std.debug.assert(Second == c.EcsEntity or second_type_info == .Type);
-
-    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
-    const pair_id = ecs_pair(first_id, second_id);
-
-    c.ecs_remove_id(world, entity, pair_id);
+pub fn ecs_remove_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
+    c.ecs_remove_id(world, entity, ecs_pair_id(world, first, second));
 }
 
 // - Override
@@ -140,20 +151,7 @@ pub fn ecs_override(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) v
 /// first = EcsEntity or type
 /// second = EcsEntity or type
 pub fn ecs_override_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
-    const First = @TypeOf(first);
-    const Second = @TypeOf(second);
-
-    const first_type_info = @typeInfo(First);
-    const second_type_info = @typeInfo(Second);
-
-    std.debug.assert(First == c.EcsEntity or first_type_info == .Type);
-    std.debug.assert(Second == c.EcsEntity or second_type_info == .Type);
-
-    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
-    const pair_id = ecs_pair(first_id, second_id);
-
-    c.ecs_override_id(world, entity, pair_id);
+    c.ecs_override_id(world, entity, ecs_pair_id(world, first, second));
 }
 
 // - Set
@@ -220,6 +218,7 @@ pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
 /// Gets an optional pointer to the given component type on the entity.
 pub fn ecs_get(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) ?*const T {
+    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
     if (c.ecs_get_id(world, entity, ecs_id(world, T))) |ptr| {
         return ecs_cast(T, ptr);
     }
@@ -231,8 +230,9 @@ pub fn ecs_get(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) ?*cons
 /// First = type
 /// second = type or entity
 pub fn ecs_get_pair(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: type, second: anytype) ?*const First {
-    const Second = @TypeOf(second);
+    std.debug.assert(@typeInfo(First) == .Struct or @typeInfo(First) == .Type);
 
+    const Second = @TypeOf(second);
     const second_type_info = @typeInfo(Second);
 
     std.debug.assert(second_type_info == .Type or Second == c.EcsEntity);
@@ -253,8 +253,9 @@ pub fn ecs_get_pair(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: typ
 /// first = type or entity
 /// Second = type
 pub fn ecs_get_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, comptime Second: type) ?*const Second {
-    const First = @TypeOf(first);
+    std.debug.assert(@typeInfo(Second) == .Struct or @typeInfo(Second) == .Type);
 
+    const First = @TypeOf(first);
     const first_type_info = @typeInfo(First);
 
     std.debug.assert(first_type_info == .Type or First == c.EcsEntity);

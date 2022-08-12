@@ -13,7 +13,7 @@ pub fn main() !void {
     var world = flecs.c.ecs_init().?;
 
     // Create an entity with name Bob
-    const bob = flecs.ecs_new_entity(world, "Bob");
+    const bob = flecs.ecs_new(world, null);
 
     // The set operation finds or creates a component, and sets it.
     flecs.ecs_set(world, bob, &Position { .x = 10, .y = 20 });
@@ -61,6 +61,14 @@ pub fn main() !void {
 
     if (flecs.ecs_get_pair(world, alice, Likes, flecs.c.Constants.EcsWildcard)) |likes| {
         std.log.debug("Alice likes someone how much? {d}", .{ likes.amount });
+    }
+
+    const entities = flecs.ecs_bulk_new(world, Apples, 10);
+
+    for (entities) |entity, i| {
+        if (flecs.ecs_get(world, entity, Apples)) |apples| {
+            std.log.debug("Bulk Entity {d}: {d} apples!", .{i, apples.count});
+        } 
     }
 
     
