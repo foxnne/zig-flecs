@@ -21,7 +21,7 @@ fn BaseType(comptime T: type) type {
     @compileError("Expected pointer or optional pointer, found '" ++ @typeName(T) ++ "'");
 }
 
-fn ecs_entity_comb (lo: c.EcsId, hi: c.EcsId) c.EcsId {
+fn ecs_entity_comb(lo: c.EcsId, hi: c.EcsId) c.EcsId {
     return (hi << @as(u32, 32)) + @intCast(u64, @truncate(u32, lo));
 }
 
@@ -56,9 +56,22 @@ pub fn ecs_add(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) void {
     c.ecs_add_id(world, entity, ecs_id(world, T));
 }
 
-pub fn ecs_add_pair (world: *c.EcsWorld, entity: c.EcsEntity, comptime First: type, comptime Second: type) void {
-    const first_id = ecs_id(world, First);
-    const second_id = ecs_id(world, Second);
+/// Adds the pair to the entity.
+///
+/// first -> entity or type
+/// second -> entity or type
+pub fn ecs_add_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
+    const First = @TypeOf(first);
+    const Second = @TypeOf(second);
+
+    const first_type_info = @typeInfo(First);
+    const second_type_info = @typeInfo(Second);
+
+    std.debug.assert(First == c.EcsEntity or first_type_info == .Type);
+    std.debug.assert(Second == c.EcsEntity or second_type_info == .Type);
+
+    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
+    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
 
     const pair_id = ecs_pair(first_id, second_id);
 
@@ -75,32 +88,54 @@ pub fn ecs_set(world: *c.EcsWorld, entity: c.EcsEntity, t: anytype) void {
     _ = c.ecs_set_id(world, entity, ecs_id(world, T), @sizeOf(T), ptr);
 }
 
-pub fn ecs_set_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, comptime Second: type) void {
-    std.debug.assert(@typeInfo(@TypeOf(first)) == .Pointer or @typeInfo(@TypeOf(first)) == .Struct);
+/// Sets the component on the first element of the pair. If the component is not already added, it will automatically be added and set.
+///
+/// first = pointer or struct
+/// second = type or entity
+pub fn ecs_set_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
     const First = @TypeOf(first);
+    const Second = @TypeOf(second);
+
+    const first_type_info = @typeInfo(First);
+    const second_type_info = @typeInfo(Second);
+
+    std.debug.assert(first_type_info == .Pointer or first_type_info == .Struct);
+    std.debug.assert(second_type_info == .Type or Second == c.EcsEntity);
+
     const FirstT = BaseType(First);
 
     const first_id = ecs_id(world, FirstT);
-    const second_id = ecs_id(world, Second);
+    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
 
     const pair_id = ecs_pair(first_id, second_id);
 
-    const ptr = if (@typeInfo(First) == .Pointer) first else &first; 
+    const ptr = if (first_type_info == .Pointer) first else &first;
 
     _ = c.ecs_set_id(world, entity, pair_id, @sizeOf(FirstT), ptr);
 }
 
-pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: type, second: anytype) void {
-    std.debug.assert(@typeInfo(@TypeOf(second)) == .Pointer or @typeInfo(@TypeOf(second)) == .Struct);
+/// Sets the component on the second element of the pair. If the component is not already added, it will automatically be added and set.
+///
+/// first = type or entity
+/// second = pointer or struct
+pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
+    const First = @TypeOf(first);
     const Second = @TypeOf(second);
+
+    const first_type_info = @typeInfo(First);
+    const second_type_info = @typeInfo(Second);
+
+    std.debug.assert(first_type_info == .Type or First == c.EcsEntity);
+    std.debug.assert(second_type_info == .Pointer or second_type_info == .Struct);
+
     const SecondT = BaseType(Second);
 
-    const first_id = ecs_id(world, First);
+    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
     const second_id = ecs_id(world, SecondT);
 
     const pair_id = ecs_pair(second_id, first_id);
 
-    const ptr = if (@typeInfo(Second) == .Pointer) second else &second; 
+    const ptr = if (second_type_info == .Pointer) second else &second;
 
     _ = c.ecs_set_id(world, entity, pair_id, @sizeOf(SecondT), ptr);
 }
@@ -115,9 +150,19 @@ pub fn ecs_get(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) ?*cons
     return null;
 }
 
-pub fn ecs_get_pair(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: type, comptime Second: type) ?*const First {
+/// Gets an optional pointer to the first element of the pair.
+///
+/// first = type
+/// second = type or entity
+pub fn ecs_get_pair(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: type, second: anytype) ?*const First {
+    const Second = @TypeOf(second);
+
+    const second_type_info = @typeInfo(Second);
+
+    std.debug.assert(second_type_info == .Type or Second == c.EcsEntity);
+    
     const first_id = ecs_id(world, First);
-    const second_id = ecs_id(world, Second);
+    const second_id = if (Second == c.EcsEntity) second else ecs_id(world, Second);
 
     const pair_id = ecs_pair(first_id, second_id);
 
@@ -127,8 +172,18 @@ pub fn ecs_get_pair(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: typ
     return null;
 }
 
-pub fn ecs_get_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: type, comptime Second: type) ?*const Second {
-    const first_id = ecs_id(world, First);
+/// Gets an optional pointer to the second element of the pair.
+///
+/// first = type or entity
+/// second = type
+pub fn ecs_get_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, comptime Second: type) ?*const Second {
+    const First = @TypeOf(first);
+
+    const first_type_info = @typeInfo(First);
+
+    std.debug.assert(first_type_info == .Type or First == c.EcsEntity);
+
+    const first_id = if (First == c.EcsEntity) first else ecs_id(world, First);
     const second_id = ecs_id(world, Second);
 
     const pair_id = ecs_pair(second_id, first_id);

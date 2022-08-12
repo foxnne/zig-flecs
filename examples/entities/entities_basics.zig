@@ -7,6 +7,7 @@ const Walking = struct {};
 const Has = struct{};
 const Apples = struct { count: i32 };
 const Eats = struct { count: i32 }; 
+const Likes = struct{ amount: i32 = 10 };
 
 pub fn main() !void {
     var world = flecs.c.ecs_init().?;
@@ -49,6 +50,17 @@ pub fn main() !void {
 
     if (flecs.ecs_get_pair(world, alice, Eats, Apples)) |eats| {
         std.log.debug("Alice eats {d} apples!", .{ eats.count });
+    }
+
+    flecs.ecs_set_pair(world, alice, Likes{ .amount = 10, }, bob);
+    flecs.ecs_set_pair(world, alice, Likes{ .amount = 5, }, Apples);
+
+    if (flecs.ecs_get_pair(world, alice, Likes, bob)) |likes| {
+        std.log.debug("How much does Alice like bob? {d}", .{ likes.amount });
+    }
+
+    if (flecs.ecs_get_pair(world, alice, Likes, flecs.c.Constants.EcsWildcard)) |likes| {
+        std.log.debug("Alice likes someone how much? {d}", .{ likes.amount });
     }
 
     
