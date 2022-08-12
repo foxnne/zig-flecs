@@ -209,7 +209,7 @@ pub const EcsIterPrivate = extern struct {
 };
 
 pub const EcsIterNextAction = ?fn ([*c]EcsIter) callconv(.C) bool;
-pub const EcsIterAction = ?fn ([*c]EcsIter) callconv(.C) void;
+pub const EcsIterAction = ?fn (*EcsIter) callconv(.C) void;
 pub const EcsIterFiniAction = ?fn ([*c]EcsIter) callconv(.C) void;
 
 pub const EcsIter = extern struct {

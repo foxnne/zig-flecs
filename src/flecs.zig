@@ -31,6 +31,11 @@ pub fn ecs_cast(comptime T: type, val: ?*const anyopaque) *const T {
     return @ptrCast(*const T, @alignCast(@alignOf(T), val));
 }
 
+/// Casts the anyopaque pointer to a pointer of the given type.
+pub fn ecs_cast_mut(comptime T: type, val: ?*anyopaque) *T {
+    return @ptrCast(*T, @alignCast(@alignOf(T), val));
+}
+
 /// Returns the EcsId of the given type.
 pub fn ecs_id(world: *c.EcsWorld, comptime T: type) c.EcsId {
     if (@sizeOf(T) == 0) {
@@ -275,6 +280,15 @@ pub fn ecs_get_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
     if (c.ecs_get_id(world, entity, pair_id)) |ptr| {
         return ecs_cast(Second, ptr);
+    }
+    return null;
+}
+
+// - Iterators
+
+pub fn ecs_field(it: *c.EcsIter, comptime T: type, index: usize) ?*T {
+    if (c.ecs_field_w_size(it, @sizeOf(T), @intCast(i32, index))) |ptr| {
+        return ecs_cast_mut(T, ptr);
     }
     return null;
 }
