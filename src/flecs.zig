@@ -69,7 +69,6 @@ pub fn ecs_component(world: *c.EcsWorld, comptime T: type) void {
     std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
 
     var handle = ecs_id_handle(T);
-
     if (handle.* < std.math.maxInt(c.EcsId)) return;
 
     if (@sizeOf(T) == 0) {
@@ -82,6 +81,17 @@ pub fn ecs_component(world: *c.EcsWorld, comptime T: type) void {
         component_desc.type.size = @sizeOf(T);
         handle.* = c.ecs_component_init(world, &component_desc);
     }
+}
+
+/// Registers a new system with the world run during the given phase.
+pub fn ecs_system(world: *c.EcsWorld, name: [:0]const u8, phase: c.EcsEntity, desc: *c.EcsSystemDesc) void {
+    var entity_desc = std.mem.zeroes(c.EcsEntityDesc);
+    entity_desc.id = c.ecs_new_id(world);
+    entity_desc.name = name;
+    entity_desc.add[0] = ecs_dependson(phase);
+    entity_desc.add[1] = phase;
+    desc.entity = c.ecs_entity_init(world, &entity_desc);
+    _ = c.ecs_system_init(world, desc);
 }
 
 // - New
@@ -299,15 +309,4 @@ pub fn ecs_childof(e: anytype) c.EcsId {
 /// Returns a pair id for depends on e.
 pub fn ecs_dependson(e: anytype) c.EcsId {
     return ecs_pair(c.Constants.EcsDependsOn, e);
-}
-
-/// Initializes a 
-pub fn ecs_system(world: *c.EcsWorld, name: [:0]const u8, phase: c.EcsEntity, desc: *c.EcsSystemDesc) void {
-    var entity_desc = std.mem.zeroes(c.EcsEntityDesc);
-    entity_desc.id = c.ecs_new_id(world);
-    entity_desc.name = name;
-    entity_desc.add[0] = ecs_dependson(phase);
-    entity_desc.add[1] = phase;
-    desc.entity = c.ecs_entity_init(world, &entity_desc);
-    _ = c.ecs_system_init(world, desc);
 }
