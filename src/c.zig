@@ -307,7 +307,7 @@ pub const EcsQueryDesc = extern struct {
     entity: EcsEntity,
 };
 
-pub const EcsRunAction = ?fn ([*c]EcsIter) callconv(.C) void;
+pub const EcsRunAction = ?fn (*EcsIter) callconv(.C) void;
 
 pub const EcsSystemDesc = extern struct {
     _canary: i32,
