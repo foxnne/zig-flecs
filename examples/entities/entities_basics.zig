@@ -5,7 +5,7 @@ pub fn system() flecs.EcsSystemDesc {
     var desc = std.mem.zeroes(flecs.EcsSystemDesc);
     desc.query.filter.terms[0] = std.mem.zeroInit(flecs.EcsTerm, .{ .id = flecs.ecs_id(Position) });
     desc.query.filter.terms[1] = std.mem.zeroInit(flecs.EcsTerm, .{ .id = flecs.ecs_id(Velocity), .oper = flecs.EcsOperKind.ecs_optional });
-    desc.query.filter.terms[2] = std.mem.zeroInit(flecs.EcsTerm, .{ .id = flecs.ecs_pair_id(Has, Apples)});
+    desc.query.filter.terms[2] = std.mem.zeroInit(flecs.EcsTerm, .{ .id = flecs.ecs_pair(Has, Apples)});
     desc.callback = run;
     return desc;
 }
@@ -32,7 +32,7 @@ const Velocity = struct { x: f32, y: f32 };
 const Has = struct {};
 const Apples = struct { count: i32 };
 const Eats = struct { count: i32 };
-const Likes = struct { amount: i32 = 10 };
+const Likes = struct { amount: i32 };
 
 pub fn main() !void {
     var world = flecs.ecs_init().?;
@@ -98,17 +98,17 @@ pub fn main() !void {
         std.log.debug("Alice likes someone how much? {d}", .{likes.amount});
     }
 
-    _ = flecs.ecs_bulk_new(world, Apples, 10);
+    const entities = flecs.ecs_bulk_new(world, Apples, 10);
 
-    // for (entities) |entity, i| {
-    //     if (flecs.ecs_get(world, entity, Apples)) |apples| {
-    //         std.log.debug("Bulk Entity {d}: {d} apples!", .{ i, apples.count });
-    //     }
-    // }
+    for (entities) |entity, i| {
+        if (flecs.ecs_get(world, entity, Apples)) |apples| {
+            std.log.debug("Bulk Entity {d}: {d} apples!", .{ i, apples.count });
+        }
+    }
 
-    // const sys = flecs.ecs_system_init(world, &system());
-    // _ = flecs.ecs_run(world, sys, 0, null);
-    // _ = flecs.ecs_run(world, sys, 0, null);
+    const sys = flecs.ecs_system_init(world, &system());
+    _ = flecs.ecs_run(world, sys, 0, null);
+    _ = flecs.ecs_run(world, sys, 0, null);
 
     _ = flecs.ecs_fini(world);
 
