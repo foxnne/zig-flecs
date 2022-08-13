@@ -46,6 +46,9 @@ pub fn ecs_id(comptime T: type) c.EcsId {
 }
 
 /// Returns an EcsId for the given pair.
+///
+/// first = EcsEntity or type
+/// second = EcsEntity or type
 pub fn ecs_pair(first: anytype, second: anytype) c.EcsId {
     const First = @TypeOf(first);
     const Second = @TypeOf(second);
@@ -296,4 +299,15 @@ pub fn ecs_childof(e: anytype) c.EcsId {
 /// Returns a pair id for depends on e.
 pub fn ecs_dependson(e: anytype) c.EcsId {
     return ecs_pair(c.Constants.EcsDependsOn, e);
+}
+
+/// Initializes a 
+pub fn ecs_system(world: *c.EcsWorld, name: [:0]const u8, phase: c.EcsEntity, desc: *c.EcsSystemDesc) void {
+    var entity_desc = std.mem.zeroes(c.EcsEntityDesc);
+    entity_desc.id = c.ecs_new_id(world);
+    entity_desc.name = name;
+    entity_desc.add[0] = ecs_dependson(phase);
+    entity_desc.add[1] = phase;
+    desc.entity = c.ecs_entity_init(world, &entity_desc);
+    _ = c.ecs_system_init(world, desc);
 }

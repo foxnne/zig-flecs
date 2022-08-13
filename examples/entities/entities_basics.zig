@@ -1,5 +1,6 @@
 const std = @import("std");
 const flecs = @import("flecs");
+const game = @import("game");
 
 pub fn system() flecs.EcsSystemDesc {
     var desc = std.mem.zeroes(flecs.EcsSystemDesc);
@@ -106,9 +107,8 @@ pub fn main() !void {
         }
     }
 
-    const sys = flecs.ecs_system_init(world, &system());
-    _ = flecs.ecs_run(world, sys, 0, null);
-    _ = flecs.ecs_run(world, sys, 0, null);
+    flecs.ecs_system(world, "Testing!", flecs.Constants.EcsOnUpdate, &system());
+    _ = flecs.ecs_progress(world, 0);
 
     _ = flecs.ecs_fini(world);
 
