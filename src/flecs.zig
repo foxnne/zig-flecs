@@ -94,8 +94,10 @@ pub fn ecs_new(world: *c.EcsWorld, comptime T: ?type) c.EcsEntity {
 }
 
 /// Returns a new entity with the given pair.
+///
+/// first = EcsEntity or type
+/// second = EcsEntity or type
 pub fn ecs_new_w_pair(world: *c.EcsWorld, first: anytype, second: anytype) c.EcsEntity {
-    // TODO: make the safety checks
     return c.ecs_new_w_id(world, ecs_pair(first, second));
 }
 
@@ -194,20 +196,12 @@ pub fn ecs_set(world: *c.EcsWorld, entity: c.EcsEntity, t: anytype) void {
 /// second = type or EcsEntity
 pub fn ecs_set_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
     const First = @TypeOf(first);
-    const Second = @TypeOf(second);
-
     const first_type_info = @typeInfo(First);
-    const second_type_info = @typeInfo(Second);
-
-    std.debug.assert(first_type_info == .Pointer or first_type_info == .Struct);
-    std.debug.assert(second_type_info == .Type or Second == c.EcsEntity);
-
     const FirstT = BaseType(First);
 
-    const first_id = ecs_id(FirstT);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(second);
-    const pair_id = c.ecs_make_pair(first_id, second_id);
+    std.debug.assert(first_type_info == .Pointer or first_type_info == .Struct);
 
+    const pair_id = ecs_pair(FirstT, second);
     const ptr = if (first_type_info == .Pointer) first else &first;
 
     _ = c.ecs_set_id(world, entity, pair_id, @sizeOf(FirstT), ptr);
@@ -218,22 +212,13 @@ pub fn ecs_set_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, sec
 /// first = type or EcsEntity
 /// second = pointer or struct
 pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
-    const First = @TypeOf(first);
     const Second = @TypeOf(second);
-
-    const first_type_info = @typeInfo(First);
     const second_type_info = @typeInfo(Second);
-
-    std.debug.assert(first_type_info == .Type or First == c.EcsEntity);
-    std.debug.assert(second_type_info == .Pointer or second_type_info == .Struct);
-
     const SecondT = BaseType(Second);
 
-    const first_id = if (First == c.EcsEntity) first else ecs_id(first);
-    const second_id = ecs_id(SecondT);
+    std.debug.assert(second_type_info == .Pointer or second_type_info == .Struct);
 
-    const pair_id = c.ecs_make_pair(first_id, second_id);
-
+    const pair_id = ecs_pair(first, SecondT);
     const ptr = if (second_type_info == .Pointer) second else &second;
 
     _ = c.ecs_set_id(world, entity, pair_id, @sizeOf(SecondT), ptr);
@@ -262,12 +247,7 @@ pub fn ecs_get_pair(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: typ
 
     std.debug.assert(second_type_info == .Type or Second == c.EcsEntity);
 
-    const first_id = ecs_id(First);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(second);
-
-    const pair_id = c.ecs_make_pair(first_id, second_id);
-
-    if (c.ecs_get_id(world, entity, pair_id)) |ptr| {
+    if (c.ecs_get_id(world, entity, ecs_pair(First, second))) |ptr| {
         return ecs_cast(First, ptr);
     }
     return null;
@@ -285,12 +265,7 @@ pub fn ecs_get_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
     std.debug.assert(first_type_info == .Type or First == c.EcsEntity);
 
-    const first_id = if (First == c.EcsEntity) first else ecs_id(first);
-    const second_id = ecs_id(Second);
-
-    const pair_id = c.ecs_make_pair(first_id, second_id);
-
-    if (c.ecs_get_id(world, entity, pair_id)) |ptr| {
+    if (c.ecs_get_id(world, entity, ecs_pair(first, Second))) |ptr| {
         return ecs_cast(Second, ptr);
     }
     return null;
