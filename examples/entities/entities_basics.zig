@@ -6,22 +6,32 @@ pub fn system() flecs.EcsSystemDesc {
     var desc = std.mem.zeroes(flecs.EcsSystemDesc);
     desc.query.filter.terms[0] = std.mem.zeroInit(flecs.EcsTerm, .{ .id = flecs.ecs_id(Position) });
     desc.query.filter.terms[1] = std.mem.zeroInit(flecs.EcsTerm, .{ .id = flecs.ecs_id(Velocity), .oper = flecs.EcsOperKind.ecs_optional });
-    desc.query.filter.terms[2] = std.mem.zeroInit(flecs.EcsTerm, .{ .id = flecs.ecs_pair(Has, Apples)});
-    desc.callback = run;
+    desc.query.filter.terms[2] = std.mem.zeroInit(flecs.EcsTerm, .{ .id = flecs.ecs_pair(Likes, Apples)});
+    desc.run = run;
     return desc;
 }
 
 pub fn run(it: *flecs.EcsIter) callconv(.C) void {
-    var i: usize = 0;
-    while (i < it.count) : (i += 1) {
-        if (flecs.ecs_field(it, Position, 1)) |position| {
-            std.log.debug("{s}'s position: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), position });
-            position.x += 5.0;
-            position.y += 5.0;
-        }
+    while (flecs.ecs_iter_next(it)) {
+        var i: usize = 0;
+        while (i < it.count) : (i += 1) {
+            if (flecs.ecs_field(it, Position, 1)) |position| {
+                std.log.debug("{s}'s position: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), position });
+                position.x += 5.0;
+                position.y += 5.0;
+            }
 
-        if (flecs.ecs_field(it, Velocity, 2)) |velocity| {
-            std.log.debug("{s}'s velocity: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), velocity });
+            if (flecs.ecs_field(it, Velocity, 2)) |velocity| {
+                std.log.debug("{s}'s velocity: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), velocity });
+            }
+
+            // if (flecs.ecs_field(it, Apples, 3)) |apples| {
+            //     std.log.debug("{s}'s has {d} apples!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), apples.count });
+            // }
+
+            if (flecs.ecs_field(it, Apples, 3)) |apples| {
+                std.log.debug("{s}'s likes apples how much? {d}!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), apples.count });
+            }
         }
     }
 }
@@ -33,7 +43,7 @@ const Velocity = struct { x: f32, y: f32 };
 const Has = struct {};
 const Apples = struct { count: i32 };
 const Eats = struct { count: i32 };
-const Likes = struct { amount: i32 };
+const Likes = struct { amount: i32, t: f32 = 0.0 };
 
 pub fn main() !void {
     var world = flecs.ecs_init().?;
@@ -49,13 +59,18 @@ pub fn main() !void {
     // Create an entity with name Bob
     const bob = flecs.ecs_new_entity(world, "Bob");
 
+    const jim = flecs.ecs_new_entity(world, "Jim");
+
     // The set operation finds or creates a component, and sets it.
     flecs.ecs_set(world, bob, &Position{ .x = 10, .y = 20 });
     flecs.ecs_set(world, bob, &Velocity{ .x = 1, .y = 2 });
 
+    flecs.ecs_set(world, jim, &Position{ .x = 10, .y = 20 });
+    flecs.ecs_set(world, jim, &Velocity{ .x = 1, .y = 2 });
+
     // The add operation adds a component without setting a value. This is
     // useful for tags, or when adding a component with its default value.
-    flecs.ecs_add(world, bob, Walking);
+    //flecs.ecs_add(world, bob, Walking);
 
     // Get the value for the Position component
     if (flecs.ecs_get(world, bob, Position)) |position| {
@@ -72,7 +87,7 @@ pub fn main() !void {
     // Create another named entity
     const alice = flecs.ecs_new_entity(world, "Alice");
     flecs.ecs_set(world, alice, &Position{ .x = 10, .y = 20 });
-    flecs.ecs_add(world, bob, Walking);
+    flecs.ecs_add(world, alice, Walking);
 
     flecs.ecs_set_pair_second(world, alice, Has, &Apples{ .count = 5 });
 
@@ -89,7 +104,7 @@ pub fn main() !void {
     }
 
     flecs.ecs_set_pair(world, alice, Likes{ .amount = 10 }, bob);
-    flecs.ecs_set_pair(world, alice, Likes{ .amount = 5 }, Apples);
+    flecs.ecs_set_pair_second(world, alice, Likes, &Apples{ .count = 4 });
 
     if (flecs.ecs_get_pair(world, alice, Likes, bob)) |b| {
         std.log.debug("How much does Alice like bob? {d}", .{b.amount});

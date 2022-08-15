@@ -234,6 +234,12 @@ pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
     const pair_id = ecs_pair(first, SecondT);
     const ptr = if (second_type_info == .Pointer) second else &second;
 
+    const First = @TypeOf(first);
+    const first_type_info = @typeInfo(First);
+    if (first_type_info == .Type and @sizeOf(First) > 0) {
+        std.log.warn("[{s}] ecs_set_pair_second: Both types are components, attached data will assume the type of {s}.", .{ @typeName(First)});
+    }
+
     _ = c.ecs_set_id(world, entity, pair_id, @sizeOf(SecondT), ptr);
 }
 
