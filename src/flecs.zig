@@ -292,10 +292,12 @@ pub fn ecs_get_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
 // - Iterators
 
-/// Returns an optional pointer for the type given the field location.
-pub fn ecs_field(it: *c.EcsIter, comptime T: type, index: usize) ?*T {
+/// Returns an optional slice for the type given the field location.
+/// Use the entity's index from the iterator to access component.
+pub fn ecs_field(it: *c.EcsIter, comptime T: type, index: usize) ?[]T {
     if (c.ecs_field_w_size(it, @sizeOf(T), @intCast(i32, index))) |ptr| {
-        return ecs_cast_mut(T, ptr);
+        const c_ptr = @ptrCast([*]T, @alignCast(@alignOf(T), ptr));
+        return c_ptr[0..@intCast(usize, it.count)];
     }
     return null;
 }

@@ -15,14 +15,14 @@ pub fn run(it: *flecs.EcsIter) callconv(.C) void {
     while (flecs.ecs_iter_next(it)) {
         var i: usize = 0;
         while (i < it.count) : (i += 1) {
-            if (flecs.ecs_field(it, Position, 1)) |position| {
-                std.log.debug("{s}'s position: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), position });
-                position.x += 5.0;
-                position.y += 5.0;
+            if (flecs.ecs_field(it, Position, 1)) |positions| {
+                std.log.debug("{s}'s position: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), positions[i] });
+                positions[i].x += 5.0;
+                positions[i].y += 5.0;
             }
 
-            if (flecs.ecs_field(it, Velocity, 2)) |velocity| {
-                std.log.debug("{s}'s velocity: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), velocity });
+            if (flecs.ecs_field(it, Velocity, 2)) |velocities| {
+                std.log.debug("{s}'s velocity: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), velocities[i] });
             }
 
             // if (flecs.ecs_field(it, Apples, 3)) |apples| {
@@ -30,7 +30,7 @@ pub fn run(it: *flecs.EcsIter) callconv(.C) void {
             // }
 
             if (flecs.ecs_field(it, Apples, 3)) |apples| {
-                std.log.debug("{s}'s likes apples how much? {d}!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), apples.count });
+                std.log.debug("{s}'s likes apples how much? {d}!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), apples[i].count });
             }
         }
     }
