@@ -29,8 +29,8 @@ pub fn run(it: *flecs.EcsIter) callconv(.C) void {
             //     std.log.debug("{s}'s has {d} apples!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), apples.count });
             // }
 
-            if (flecs.ecs_field(it, Apples, 3)) |apples| {
-                std.log.debug("{s}'s likes apples how much? {d}!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), apples[i].count });
+            if (flecs.ecs_field(it, Likes, 3)) |likes| {
+                std.log.debug("{s}'s likes apples how much? {d}!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), likes[i].amount });
             }
         }
     }
