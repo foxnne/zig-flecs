@@ -245,11 +245,20 @@ pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
 // - Get
 
-/// Gets an optional pointer to the given component type on the entity.
+/// Gets an optional const pointer to the given component type on the entity.
 pub fn ecs_get(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) ?*const T {
     std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
     if (c.ecs_get_id(world, entity, ecs_id(T))) |ptr| {
         return ecs_cast(T, ptr);
+    }
+    return null;
+}
+
+/// Gets an optional pointer to the given component type on the entity.
+pub fn ecs_get_mut(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) ?*T {
+    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
+    if (c.ecs_get_id(world, entity, ecs_id(T))) |ptr| {
+        return ecs_cast_mut(T, ptr);
     }
     return null;
 }
