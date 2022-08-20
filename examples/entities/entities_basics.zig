@@ -122,7 +122,8 @@ pub fn main() !void {
         }
     }
 
-    flecs.ecs_system(world, "Testing!", flecs.Constants.EcsOnUpdate, &system());
+    var system_desc = system();
+    flecs.ecs_system(world, "Testing!", flecs.Constants.EcsOnUpdate, &system_desc);
     _ = flecs.ecs_progress(world, 0);
 
     _ = flecs.ecs_fini(world);

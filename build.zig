@@ -36,7 +36,7 @@ pub fn build(b: *std.build.Builder) anyerror!void {
 fn getAllExamples(b: *std.build.Builder, root_directory: []const u8) [][2][]const u8 {
     var list = std.ArrayList([2][]const u8).init(b.allocator);
 
-    var recursor = struct {
+    const recursor = struct {
         fn search(alloc: std.mem.Allocator, directory: []const u8, filelist: *std.ArrayList([2][]const u8)) void {
             var dir = std.fs.cwd().openIterableDir(directory, .{ .access_sub_paths = true }) catch unreachable;
             defer dir.close();
@@ -82,8 +82,6 @@ pub fn link(exe: *std.build.LibExeObjStep, target: std.zig.CrossTarget) void {
     exe.addCSourceFile(thisDir() ++ "/src/c/flecs.c", &.{""});
 }
 
-fn thisDir() []const u8 {
-    comptime {
-        return std.fs.path.dirname(@src().file) orelse ".";
-    }
+inline fn thisDir() []const u8 {
+    return comptime std.fs.path.dirname(@src().file) orelse ".";
 }

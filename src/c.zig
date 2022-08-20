@@ -1,3 +1,5 @@
+const builtin = @import("builtin");
+
 pub const EcsInOutKind = enum(c_int) {
     ecs_in_out_default,
     ecs_in_out_none,
@@ -208,9 +210,9 @@ pub const EcsIterPrivate = extern struct {
     cache: EcsIterCache,
 };
 
-pub const EcsIterNextAction = ?fn ([*c]EcsIter) callconv(.C) bool;
-pub const EcsIterAction = ?fn (*EcsIter) callconv(.C) void;
-pub const EcsIterFiniAction = ?fn ([*c]EcsIter) callconv(.C) void;
+pub const EcsIterNextAction = if (builtin.zig_backend == .stage1) fn ([*c]EcsIter) callconv(.C) bool else *const fn ([*c]EcsIter) callconv(.C) bool;
+pub const EcsIterAction = if (builtin.zig_backend == .stage1) fn (*EcsIter) callconv(.C) void else *const fn (*EcsIter) callconv(.C) void;
+pub const EcsIterFiniAction = if (builtin.zig_backend == .stage1) fn ([*c]EcsIter) callconv(.C) void else *const fn ([*c]EcsIter) callconv(.C) void;
 
 pub const EcsIter = extern struct {
     world: ?*EcsWorld,
@@ -248,19 +250,29 @@ pub const EcsIter = extern struct {
     flags: EcsFlags32,
     interrupted_by: EcsEntity,
     priv: EcsIterPrivate,
-    next: EcsIterNextAction,
-    callback: EcsIterAction,
-    fini: EcsIterFiniAction,
+    next: ?EcsIterNextAction,
+    callback: ?EcsIterAction,
+    fini: ?EcsIterFiniAction,
     chain_it: [*c]EcsIter,
 };
 
 pub const EcsWorld = opaque {};
 pub const EcsPoly = anyopaque;
 
-pub const EcsIterInitAction = ?fn (?*const EcsWorld, ?*const EcsPoly, [*c]EcsIter, [*c]EcsTerm) callconv(.C) void;
+pub const EcsIterInitAction = if (builtin.zig_backend == .stage1) fn (
+    ?*const EcsWorld,
+    ?*const EcsPoly,
+    [*c]EcsIter,
+    [*c]EcsTerm,
+) callconv(.C) void else *const fn (
+    ?*const EcsWorld,
+    ?*const EcsPoly,
+    [*c]EcsIter,
+    [*c]EcsTerm,
+) callconv(.C) void;
 
 pub const EcsIterable = extern struct {
-    init: EcsIterInitAction,
+    init: ?EcsIterInitAction,
 };
 
 pub const EcsFilter = extern struct {
@@ -288,10 +300,51 @@ pub const EcsFilterDesc = extern struct {
     name: [*c]const u8,
 };
 
-pub const EcsOrderByAction = ?fn (EcsEntity, ?*const anyopaque, EcsEntity, ?*const anyopaque) callconv(.C) c_int;
-pub const EcsSortTableAction = ?fn (?*EcsWorld, ?*EcsTable, [*c]EcsEntity, ?*anyopaque, i32, i32, i32, EcsOrderByAction) callconv(.C) void;
-pub const EcsGroupByAction = ?fn (?*EcsWorld, ?*EcsTable, EcsId, ?*anyopaque) callconv(.C) u64;
-pub const EcsCtxFree = ?fn (?*anyopaque) callconv(.C) void;
+pub const EcsOrderByAction = if (builtin.zig_backend == .stage1) fn (
+    EcsEntity,
+    ?*const anyopaque,
+    EcsEntity,
+    ?*const anyopaque,
+) callconv(.C) c_int else *const fn (
+    EcsEntity,
+    ?*const anyopaque,
+    EcsEntity,
+    ?*const anyopaque,
+) callconv(.C) c_int;
+
+pub const EcsSortTableAction = if (builtin.zig_backend == .stage1) fn (
+    ?*EcsWorld,
+    ?*EcsTable,
+    [*c]EcsEntity,
+    ?*anyopaque,
+    i32,
+    i32,
+    i32,
+    EcsOrderByAction,
+) callconv(.C) void else *const fn (
+    ?*EcsWorld,
+    ?*EcsTable,
+    [*c]EcsEntity,
+    ?*anyopaque,
+    i32,
+    i32,
+    i32,
+    EcsOrderByAction,
+) callconv(.C) void;
+
+pub const EcsGroupByAction = if (builtin.zig_backend == .stage1) fn (
+    ?*EcsWorld,
+    ?*EcsTable,
+    EcsId,
+    ?*anyopaque,
+) callconv(.C) u64 else *const fn (
+    ?*EcsWorld,
+    ?*EcsTable,
+    EcsId,
+    ?*anyopaque,
+) callconv(.C) u64;
+
+pub const EcsCtxFree = if (builtin.zig_backend == .stage1) fn (?*anyopaque) callconv(.C) void else *const fn (?*anyopaque) callconv(.C) void;
 
 pub const EcsQueryDesc = extern struct {
     _canary: i32,
@@ -302,23 +355,23 @@ pub const EcsQueryDesc = extern struct {
     group_by_id: EcsId,
     group_by: EcsGroupByAction,
     group_by_ctx: ?*anyopaque,
-    group_by_ctx_free: EcsCtxFree,
+    group_by_ctx_free: ?EcsCtxFree,
     parent: ?*EcsQuery,
     entity: EcsEntity,
 };
 
-pub const EcsRunAction = ?fn (*EcsIter) callconv(.C) void;
+pub const EcsRunAction = if (builtin.zig_backend == .stage1) fn (*EcsIter) callconv(.C) void else *const fn (*EcsIter) callconv(.C) void;
 
 pub const EcsSystemDesc = extern struct {
     _canary: i32,
     entity: EcsEntity,
     query: EcsQueryDesc,
-    run: EcsRunAction,
-    callback: EcsIterAction,
+    run: ?EcsRunAction,
+    callback: ?EcsIterAction,
     ctx: ?*anyopaque,
     binding_ctx: ?*anyopaque,
-    ctx_free: EcsCtxFree,
-    binding_ctx_free: EcsCtxFree,
+    ctx_free: ?EcsCtxFree,
+    binding_ctx_free: ?EcsCtxFree,
     interval: f32,
     rate: i32,
     tick_source: EcsEntity,
@@ -333,27 +386,64 @@ pub const EcsTypeInfo = extern struct {
     component: EcsEntity,
 };
 
-pub const EcsFiniAction = ?fn (?*EcsWorld, ?*anyopaque) callconv(.C) void;
-pub const EcsXtor = ?fn (?*anyopaque, i32, [*c]const EcsTypeInfo) callconv(.C) void;
-pub const EcsCopy = ?fn (?*anyopaque, ?*const anyopaque, i32, [*c]const EcsTypeInfo) callconv(.C) void;
-pub const EcsMove = ?fn (?*anyopaque, ?*anyopaque, i32, [*c]const EcsTypeInfo) callconv(.C) void;
+pub const EcsFiniAction = if (builtin.zig_backend == .stage1) fn (
+    ?*EcsWorld,
+    ?*anyopaque,
+) callconv(.C) void else *const fn (
+    ?*EcsWorld,
+    ?*anyopaque,
+) callconv(.C) void;
+
+pub const EcsXtor = if (builtin.zig_backend == .stage1) fn (
+    ?*anyopaque,
+    i32,
+    [*c]const EcsTypeInfo,
+) callconv(.C) void else *const fn (
+    ?*anyopaque,
+    i32,
+    [*c]const EcsTypeInfo,
+) callconv(.C) void;
+
+pub const EcsCopy = if (builtin.zig_backend == .stage1) fn (
+    ?*anyopaque,
+    ?*const anyopaque,
+    i32,
+    [*c]const EcsTypeInfo,
+) callconv(.C) void else *const fn (
+    ?*anyopaque,
+    ?*const anyopaque,
+    i32,
+    [*c]const EcsTypeInfo,
+) callconv(.C) void;
+
+pub const EcsMove = if (builtin.zig_backend == .stage1) fn (
+    ?*anyopaque,
+    ?*anyopaque,
+    i32,
+    [*c]const EcsTypeInfo,
+) callconv(.C) void else *const fn (
+    ?*anyopaque,
+    ?*anyopaque,
+    i32,
+    [*c]const EcsTypeInfo,
+) callconv(.C) void;
 
 pub const EcsTypeHooks = extern struct {
-    ctor: EcsXtor,
-    dtor: EcsXtor,
-    copy: EcsCopy,
-    move: EcsMove,
-    copy_ctor: EcsCopy,
-    move_ctor: EcsMove,
-    ctor_move_dtor: EcsMove,
-    move_dtor: EcsMove,
-    on_add: EcsIterAction,
-    on_set: EcsIterAction,
-    on_remove: EcsIterAction,
+    ctor: ?EcsXtor,
+    dtor: ?EcsXtor,
+    copy: ?EcsCopy,
+    move: ?EcsMove,
+    copy_ctor: ?EcsCopy,
+    move_ctor: ?EcsMove,
+    ctor_move_dtor: ?EcsMove,
+    move_dtor: ?EcsMove,
+    on_add: ?EcsIterAction,
+    on_set: ?EcsIterAction,
+    on_remove: ?EcsIterAction,
     ctx: ?*anyopaque,
     binding_ctx: ?*anyopaque,
-    ctx_free: EcsCtxFree,
-    binding_ctx_free: EcsCtxFree,
+    ctx_free: ?EcsCtxFree,
+    binding_ctx_free: ?EcsCtxFree,
 };
 
 pub const EcsType = extern struct {
@@ -472,8 +562,8 @@ pub const EcsObserverDesc = extern struct {
     run: EcsRunAction,
     ctx: ?*anyopaque,
     binding_ctx: ?*anyopaque,
-    ctx_free: EcsCtxFree,
-    binding_ctx_free: EcsCtxFree,
+    ctx_free: ?EcsCtxFree,
+    binding_ctx_free: ?EcsCtxFree,
     observable: ?*EcsPoly,
     last_event_id: [*c]i32,
     term_index: i32,
@@ -486,9 +576,22 @@ pub const EcsPipelineDesc = extern struct {
 
 pub const EcsSnapshot = opaque {};
 
-pub const EcsAppInitAction = ?fn (?*EcsWorld) callconv(.C) c_int;
-pub const EcsAppRunAction = ?fn (?*EcsWorld, [*c]EcsAppDesc) callconv(.C) c_int;
-pub const EcsAppFrameAction = ?fn (?*EcsWorld, [*c]const EcsAppDesc) callconv(.C) c_int;
+pub const EcsAppInitAction = if (builtin.zig_backend == .stage1) fn (?*EcsWorld) callconv(.C) c_int else *const fn (?*EcsWorld) callconv(.C) c_int;
+pub const EcsAppRunAction = if (builtin.zig_backend == .stage1) fn (
+    ?*EcsWorld,
+    [*c]EcsAppDesc,
+) callconv(.C) c_int else *const fn (
+    ?*EcsWorld,
+    [*c]EcsAppDesc,
+) callconv(.C) c_int;
+
+pub const EcsAppFrameAction = if (builtin.zig_backend == .stage1) fn (
+    ?*EcsWorld,
+    [*c]const EcsAppDesc,
+) callconv(.C) c_int else *const fn (
+    ?*EcsWorld,
+    [*c]const EcsAppDesc,
+) callconv(.C) c_int;
 
 pub const EcsAppDesc = extern struct {
     target_fps: f32,
@@ -496,7 +599,7 @@ pub const EcsAppDesc = extern struct {
     threads: i32,
     enable_rest: bool,
     enable_monitor: bool,
-    init: EcsAppInitAction,
+    init: ?EcsAppInitAction,
     ctx: ?*anyopaque,
 };
 

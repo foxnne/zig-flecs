@@ -84,7 +84,7 @@ pub fn ecs_component(world: *c.EcsWorld, comptime T: type) void {
 }
 
 /// Registers a new system with the world run during the given phase.
-pub fn ecs_system(world: *c.EcsWorld, name: [:0]const u8, phase: c.EcsEntity, desc: *c.EcsSystemDesc) void {
+pub fn ecs_system(world: *c.EcsWorld, name: [*:0]const u8, phase: c.EcsEntity, desc: *c.EcsSystemDesc) void {
     var entity_desc = std.mem.zeroes(c.EcsEntityDesc);
     entity_desc.id = c.ecs_new_id(world);
     entity_desc.name = name;
@@ -126,7 +126,7 @@ pub fn ecs_bulk_new(world: *c.EcsWorld, comptime Component: ?type, count: i32) [
 }
 
 /// Returns a new entity with the given name.
-pub fn ecs_new_entity(world: *c.EcsWorld, name: [:0]const u8) c.EcsEntity {
+pub fn ecs_new_entity(world: *c.EcsWorld, name: [*:0]const u8) c.EcsEntity {
     const desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = name, .id = c.ecs_new_id(world) });
     return c.ecs_entity_init(world, &desc);
 }
