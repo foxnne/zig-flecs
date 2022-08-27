@@ -133,7 +133,7 @@ pub fn ecs_new_entity(world: *c.EcsWorld, name: [*:0]const u8) c.EcsEntity {
 
 // - Add
 
-/// Adds a component to the entity. If the type is a non-zero struct, the values are default.
+/// Adds a component to the entity. If the type is a non-zero struct, the values may be undefined!
 pub fn ecs_add(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) void {
     std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
     c.ecs_add_id(world, entity, ecs_id(T));
