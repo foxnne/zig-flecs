@@ -55,7 +55,7 @@ pub const EcsTerm = extern struct {
     oper: EcsOperKind,
     id_flags: EcsId,
     name: [*c]u8,
-    index: i32,
+    field_index: i32,
     move: bool,
 };
 
@@ -109,6 +109,7 @@ pub const EcsTermIter = extern struct {
     cur: ?*EcsIdRecord,
     it: EcsTableCacheIter,
     index: i32,
+    observed_table_count: i32,
     table: ?*EcsTable,
     cur_match: i32,
     match_count: i32,
@@ -143,6 +144,7 @@ pub const EcsQueryIter = extern struct {
     query: ?*EcsQuery,
     node: ?*EcsQueryTableNode,
     prev: ?*EcsQueryTableNode,
+    last: ?*EcsQueryTableNode,
     sparse_smallest: i32,
     sparse_first: i32,
     bitset_first: i32,
@@ -229,12 +231,13 @@ pub const EcsIter = extern struct {
     match_indices: [*c]i32,
     references: [*c]EcsRef,
     constrained_vars: EcsFlags64,
+    group_id: u64,
+    field_count: i32,
     system: EcsEntity,
     event: EcsEntity,
     event_id: EcsId,
     terms: [*c]EcsTerm,
     table_count: i32,
-    term_count: i32,
     term_index: i32,
     variable_count: i32,
     variable_names: [*c][*c]u8,
@@ -279,7 +282,7 @@ pub const EcsFilter = extern struct {
     hdr: EcsHeader,
     terms: [*c]EcsTerm,
     term_count: i32,
-    term_count_actual: i32,
+    field_count: i32,
     owned: bool,
     terms_owned: bool,
     flags: EcsFlags32,
@@ -505,6 +508,7 @@ pub const EcsWorldInfo = extern struct {
     remove_count: i32,
     set_count: i32,
     discard_count: i32,
+    name_prefix: [*c]const u8,
 };
 
 pub const EcsBulkDesc = extern struct {
@@ -739,11 +743,13 @@ pub extern fn ecs_query_next(iter: [*c]EcsIter) bool;
 pub extern fn ecs_query_next_instanced(iter: [*c]EcsIter) bool;
 pub extern fn ecs_query_changed(query: ?*EcsQuery, it: [*c]const EcsIter) bool;
 pub extern fn ecs_query_skip(it: [*c]EcsIter) void;
+pub extern fn ecs_query_set_group(it: [*c]EcsIter, group_id: u64) void;
 pub extern fn ecs_query_orphaned(query: ?*EcsQuery) bool;
 pub extern fn ecs_query_str(query: ?*const EcsQuery) [*c]u8;
 pub extern fn ecs_query_table_count(query: ?*const EcsQuery) i32;
 pub extern fn ecs_query_empty_table_count(query: ?*const EcsQuery) i32;
 pub extern fn ecs_query_entity_count(query: ?*const EcsQuery) i32;
+pub extern fn ecs_query_entity(query: ?*const EcsQuery) EcsEntity;
 
 pub extern fn ecs_emit(world: ?*EcsWorld, desc: [*c]EcsEventDesc) void;
 pub extern fn ecs_observer_init(world: ?*EcsWorld, desc: [*c]const EcsObserverDesc) EcsEntity;

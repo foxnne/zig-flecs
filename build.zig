@@ -1,6 +1,8 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const current_version = "3.0.4";
+
 pub fn build(b: *std.build.Builder) anyerror!void {
     const target = b.standardTargetOptions(.{});
 

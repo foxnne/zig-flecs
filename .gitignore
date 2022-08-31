@@ -1,3 +1,5 @@
 .DS_Store
 src/raw.zig
+src/raw_old.zig
+src/raw_new.zig
 /zig-cache
