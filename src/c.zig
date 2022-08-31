@@ -889,6 +889,9 @@ pub extern fn ecs_parse_token(name: [*c]const u8, expr: [*c]const u8, ptr: [*c]c
 pub extern fn ecs_parse_term(world: ?*const EcsWorld, name: [*c]const u8, expr: [*c]const u8, ptr: [*c]const u8, term_out: [*c]EcsTerm) [*c]u8;
 
 pub const Constants = struct {
+    pub const ECS_ID_FLAGS_MASK: u64 = @as(u64, 0xFF) << 56;
+    pub const ECS_COMPONENT_MASK: u64 = ~ECS_ID_FLAGS_MASK;
+
     pub extern const ECS_PAIR: EcsId;
     pub extern const ECS_OVERRIDE: EcsId;
     pub extern const ECS_TOGGLE: EcsId;

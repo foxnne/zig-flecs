@@ -45,6 +45,16 @@ pub fn ecs_id(comptime T: type) c.EcsId {
     return ecs_id_handle(T).*;
 }
 
+/// Returns the full id of the first element of the pair.
+pub fn ecs_pair_first (pair: c.EcsId) c.EcsId {
+    return @intCast(c.EcsId, @truncate(u32, (pair & c.Constants.ECS_COMPONENT_MASK) >> 32));
+}
+
+/// returns the full id of the second element of the pair.
+pub fn ecs_pair_second (pair: c.EcsId) c.EcsId {
+    return @intCast(c.EcsId, @truncate(u32, pair));
+}
+
 /// Returns an EcsId for the given pair.
 ///
 /// first = EcsEntity or type
