@@ -50,7 +50,7 @@ fn getAllExamples(b: *std.build.Builder, root_directory: []const u8) [][2][]cons
                         const abs_path = std.fs.path.join(alloc, &[_][]const u8{ directory, entry.name }) catch unreachable;
                         const name = std.fs.path.basename(abs_path);
 
-                        filelist.append([2][]const u8 {name[0..name.len - 4], abs_path}) catch unreachable;
+                        filelist.append([2][]const u8{ name[0 .. name.len - 4], abs_path }) catch unreachable;
                     }
                 } else if (entry.kind == .Directory) {
                     const abs_path = std.fs.path.join(alloc, &[_][]const u8{ directory, entry.name }) catch unreachable;
@@ -65,13 +65,10 @@ fn getAllExamples(b: *std.build.Builder, root_directory: []const u8) [][2][]cons
     return list.toOwnedSlice();
 }
 
-
-pub fn getPkg () std.build.Pkg {
-    return .{
-        .name = "flecs",
-        .source = .{ .path = thisDir() ++ "/src/flecs.zig"},
-    };
-}
+pub const pkg = std.build.Pkg{
+    .name = "flecs",
+    .source = .{ .path = thisDir() ++ "/src/flecs.zig" },
+};
 
 pub fn link(exe: *std.build.LibExeObjStep, target: std.zig.CrossTarget) void {
     exe.linkLibC();
