@@ -20,7 +20,7 @@ pub fn build(b: *std.build.Builder) anyerror!void {
         exe.setOutputDir("zig-cache/bin");
 
         link(exe, target);
-        exe.addPackage(getPkg());
+        exe.addPackage(pkg);
 
         const run_cmd = exe.run();
         const exe_step = b.step(name, b.fmt("run {s}.zig", .{name}));
