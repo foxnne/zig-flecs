@@ -104,6 +104,15 @@ pub fn ecs_system(world: *c.EcsWorld, name: [*:0]const u8, phase: c.EcsEntity, d
     _ = c.ecs_system_init(world, desc);
 }
 
+/// Registers a new observer with the world.
+pub fn ecs_observer(world: *c.EcsWorld, name: [*:0]const u8, desc: *c.EcsObserverDesc) void {
+    var entity_desc = std.mem.zeroes(c.EcsEntityDesc);
+    entity_desc.id = c.ecs_new_id(world);
+    entity_desc.name = name;
+    desc.entity = c.ecs_entity_init(world, &entity_desc);
+    _ = c.ecs_observer_init(world, desc);
+}
+
 // - New
 
 /// Returns a new entity with the given component. Pass null if no component is desired.
