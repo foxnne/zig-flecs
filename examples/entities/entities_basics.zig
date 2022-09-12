@@ -25,10 +25,6 @@ pub fn run(it: *flecs.EcsIter) callconv(.C) void {
                 std.log.debug("{s}'s velocity: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), velocities[i] });
             }
 
-            // if (flecs.ecs_field(it, Apples, 3)) |apples| {
-            //     std.log.debug("{s}'s has {d} apples!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), apples.count });
-            // }
-
             if (flecs.ecs_field(it, Likes, 3)) |likes| {
                 std.log.debug("{s}'s likes apples how much? {d}!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), likes[i].amount });
             }
@@ -58,7 +54,6 @@ pub fn main() !void {
 
     // Create an entity with name Bob
     const bob = flecs.ecs_new_entity(world, "Bob");
-
     const jim = flecs.ecs_new_entity(world, "Jim");
 
     // The set operation finds or creates a component, and sets it.
@@ -84,10 +79,15 @@ pub fn main() !void {
         std.log.debug("position: {any}", .{position});
     }
 
+    const person = flecs.ecs_new_prefab(world, "Person");
+    flecs.ecs_add(world, person, Position);
+    flecs.ecs_override(world, person, Position);
+    flecs.ecs_set(world, person, &Velocity{ .x = 5, .y = 5});
+    flecs.ecs_add(world, person, Walking);
+
     // Create another named entity
     const alice = flecs.ecs_new_entity(world, "Alice");
-    flecs.ecs_set(world, alice, &Position{ .x = 10, .y = 20 });
-    flecs.ecs_add(world, alice, Walking);
+    flecs.ecs_add_pair(world, alice, flecs.Constants.EcsIsA, person);
 
     flecs.ecs_set_pair_second(world, alice, Has, &Apples{ .count = 5 });
 

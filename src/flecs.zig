@@ -146,7 +146,14 @@ pub fn ecs_bulk_new(world: *c.EcsWorld, comptime Component: ?type, count: i32) [
 
 /// Returns a new entity with the given name.
 pub fn ecs_new_entity(world: *c.EcsWorld, name: [*:0]const u8) c.EcsEntity {
-    const desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = name, .id = c.ecs_new_id(world) });
+    const desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = name });
+    return c.ecs_entity_init(world, &desc);
+}
+
+/// Returns a new prefab with the given name.
+pub fn ecs_new_prefab(world: *c.EcsWorld, name: [*:0]const u8) c.EcsEntity {
+    var desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = name });
+    desc.add[0] = c.Constants.EcsPrefab;
     return c.ecs_entity_init(world, &desc);
 }
 
@@ -333,7 +340,7 @@ pub fn ecs_field(it: *c.EcsIter, comptime T: type, index: usize) ?[]T {
 // - Utilities for commonly used operations
 
 /// Returns a pair id for isa e.
-pub fn ecs_isa( e: anytype) c.EcsId {
+pub fn ecs_isa(e: anytype) c.EcsId {
     return ecs_pair(c.Constants.EcsIsA, e);
 }
 
