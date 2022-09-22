@@ -66,8 +66,8 @@ pub fn ecs_pair(first: anytype, second: anytype) c.EcsId {
     const first_type_info = @typeInfo(First);
     const second_type_info = @typeInfo(Second);
 
-    std.debug.assert(First == c.EcsEntity or first_type_info == .Type);
-    std.debug.assert(Second == c.EcsEntity or second_type_info == .Type);
+    std.debug.assert(First == c.EcsEntity or first_type_info == .Type or first_type_info == .Enum);
+    std.debug.assert(Second == c.EcsEntity or second_type_info == .Type or second_type_info == .Enum);
 
     const first_id = if (First == c.EcsEntity) first else ecs_id(first);
     const second_id = if (Second == c.EcsEntity) second else ecs_id(second);
@@ -76,7 +76,7 @@ pub fn ecs_pair(first: anytype, second: anytype) c.EcsId {
 
 /// Registers the given type as a new component.
 pub fn ecs_component(world: *c.EcsWorld, comptime T: type) void {
-    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
+    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type or @typeInfo(T) == .Enum);
 
     var handle = ecs_id_handle(T);
     if (handle.* < std.math.maxInt(c.EcsId)) return;
@@ -160,9 +160,17 @@ pub fn ecs_new_prefab(world: *c.EcsWorld, name: [*:0]const u8) c.EcsEntity {
 // - Add
 
 /// Adds a component to the entity. If the type is a non-zero struct, the values may be undefined!
-pub fn ecs_add(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) void {
-    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
-    c.ecs_add_id(world, entity, ecs_id(T));
+pub fn ecs_add(world: *c.EcsWorld, entity: c.EcsEntity, t: anytype) void {
+    const T = @TypeOf(t);
+    const typeInfo = @typeInfo(T);
+
+    if (typeInfo == .Type) {
+        c.ecs_add_id(world, entity, ecs_id(t));
+    } else {
+        _ = c.ecs_set_id(world, entity, ecs_id(T), @sizeOf(T), &t);
+    }
+
+    
 }
 
 /// Adds the pair to the entity.
@@ -273,7 +281,7 @@ pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
 
 /// Gets an optional const pointer to the given component type on the entity.
 pub fn ecs_get(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) ?*const T {
-    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type);
+    std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type or @typeInfo(T) == .Enum);
     if (c.ecs_get_id(world, entity, ecs_id(T))) |ptr| {
         return ecs_cast(T, ptr);
     }
