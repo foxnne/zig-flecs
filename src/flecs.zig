@@ -17,6 +17,7 @@ pub fn BaseType(comptime T: type) type {
         },
         .Optional => |info| return BaseType(info.child),
         .Struct => return T,
+        .Enum => return T,
         else => {},
     }
     @compileError("Expected pointer or optional pointer, found '" ++ @typeName(T) ++ "'");
@@ -46,12 +47,12 @@ pub fn ecs_id(comptime T: type) c.EcsId {
 }
 
 /// Returns the full id of the first element of the pair.
-pub fn ecs_pair_first (pair: c.EcsId) c.EcsId {
+pub fn ecs_pair_first(pair: c.EcsId) c.EcsId {
     return @intCast(c.EcsId, @truncate(u32, (pair & c.Constants.ECS_COMPONENT_MASK) >> 32));
 }
 
 /// returns the full id of the second element of the pair.
-pub fn ecs_pair_second (pair: c.EcsId) c.EcsId {
+pub fn ecs_pair_second(pair: c.EcsId) c.EcsId {
     return @intCast(c.EcsId, @truncate(u32, pair));
 }
 
@@ -85,8 +86,8 @@ pub fn ecs_component(world: *c.EcsWorld, comptime T: type) void {
         var desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
         handle.* = c.ecs_entity_init(world, &desc);
     } else {
-        var entity_desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T)});
-        var component_desc = std.mem.zeroInit(c.EcsComponentDesc, .{.entity = c.ecs_entity_init(world, &entity_desc)});
+        var entity_desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
+        var component_desc = std.mem.zeroInit(c.EcsComponentDesc, .{ .entity = c.ecs_entity_init(world, &entity_desc) });
         component_desc.type.alignment = @alignOf(T);
         component_desc.type.size = @sizeOf(T);
         handle.* = c.ecs_component_init(world, &component_desc);
@@ -170,7 +171,12 @@ pub fn ecs_add(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) void {
 /// first = EcsEntity or type
 /// second = EcsEntity or type
 pub fn ecs_add_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, second: anytype) void {
-    c.ecs_add_id(world, entity, ecs_pair(first, second));
+    const First = @TypeOf(first);
+    const first_type_info = @typeInfo(First);
+
+    if (first_type_info == .Enum) { 
+        _ = c.ecs_set_id(world, entity, ecs_pair(first, second), @sizeOf(First), &first);
+    } else c.ecs_add_id(world, entity, ecs_pair(first, second));
 }
 
 // - Remove
@@ -263,7 +269,7 @@ pub fn ecs_set_pair_second(world: *c.EcsWorld, entity: c.EcsEntity, first: anyty
     const First = @TypeOf(first);
     const first_type_info = @typeInfo(First);
     if (first_type_info == .Type and @sizeOf(First) > 0) {
-        std.log.warn("[{s}] ecs_set_pair_second: Both types are components, attached data will assume the type of {s}.", .{ @typeName(First)});
+        std.log.warn("[{s}] ecs_set_pair_second: Both types are components, attached data will assume the type of {s}.", .{@typeName(First)});
     }
 
     _ = c.ecs_set_id(world, entity, pair_id, @sizeOf(SecondT), ptr);
