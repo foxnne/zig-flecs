@@ -15,18 +15,28 @@ pub fn run(it: *flecs.EcsIter) callconv(.C) void {
     while (flecs.ecs_iter_next(it)) {
         var i: usize = 0;
         while (i < it.count) : (i += 1) {
+            const name = flecs.ecs_get_name(it.world.?, it.entities[i]);
             if (flecs.ecs_field(it, Position, 1)) |positions| {
-                std.log.debug("{s}'s position: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), positions[i] });
+                if (name != null) {
+                    std.log.debug("{s}'s position: {any}", .{ name, positions[i] });
+                }
+                
                 positions[i].x += 5.0;
                 positions[i].y += 5.0;
             }
 
             if (flecs.ecs_field(it, Velocity, 2)) |velocities| {
-                std.log.debug("{s}'s velocity: {any}", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), velocities[i] });
+                if (name != null) {
+                    std.log.debug("{s}'s velocity: {any}", .{ name, velocities[i] });
+                }
+                
             }
 
             if (flecs.ecs_field(it, Likes, 3)) |likes| {
-                std.log.debug("{s}'s likes apples how much? {d}!", .{ flecs.ecs_get_name(it.world.?, it.entities[i]), likes[i].amount });
+                if (name != null) {
+                    std.log.debug("{s}'s likes apples how much? {d}!", .{ name, likes[i].amount });
+                }
+                
             }
         }
     }
@@ -35,6 +45,8 @@ pub fn run(it: *flecs.EcsIter) callconv(.C) void {
 const Position = struct { x: f32, y: f32 };
 const Walking = struct {};
 const Velocity = struct { x: f32, y: f32 };
+
+const Direction = enum { n, s, e, w };
 
 const Has = struct {};
 const Apples = struct { count: i32 };
@@ -51,6 +63,7 @@ pub fn main() !void {
     flecs.ecs_component(world, Apples);
     flecs.ecs_component(world, Eats);
     flecs.ecs_component(world, Likes);
+    flecs.ecs_component(world, Direction);
 
     // Create an entity with name Bob
     const bob = flecs.ecs_new_entity(world, "Bob");
@@ -67,6 +80,17 @@ pub fn main() !void {
     // useful for tags, or when adding a component with its default value.
     //flecs.ecs_add(world, bob, Walking);
 
+    flecs.ecs_add(world, bob, Direction.e);
+
+    if (flecs.ecs_get(world, bob, Direction)) |direction| {
+        std.log.debug("bob's direction: {any}", .{ direction });
+    }
+
+    flecs.ecs_add(world, bob, Direction.s);
+
+    if (flecs.ecs_get(world, bob, Direction)) |direction| {
+        std.log.debug("bob's direction: {any}", .{ direction });
+    }
     // Get the value for the Position component
     if (flecs.ecs_get(world, bob, Position)) |position| {
         std.log.debug("position: {any}", .{position});
@@ -126,7 +150,7 @@ pub fn main() !void {
     flecs.ecs_system(world, "Testing!", flecs.Constants.EcsOnUpdate, &system_desc);
     _ = flecs.ecs_progress(world, 0);
 
-    _ = flecs.ecs_fini(world);
+    //_ = flecs.ecs_fini(world);
 
     // TODO: add a getType method and wrapper for flecs types
     // Print all the components the entity has. This will output:
