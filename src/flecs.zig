@@ -16,8 +16,8 @@ pub fn BaseType(comptime T: type) type {
             else => {},
         },
         .Optional => |info| return BaseType(info.child),
+        .Enum,
         .Struct => return T,
-        .Enum => return T,
         else => {},
     }
     @compileError("Expected pointer or optional pointer, found '" ++ @typeName(T) ++ "'");
