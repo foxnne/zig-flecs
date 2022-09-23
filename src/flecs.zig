@@ -70,8 +70,8 @@ pub fn ecs_pair(first: anytype, second: anytype) c.EcsId {
     std.debug.assert(First == c.EcsEntity or first_type_info == .Type or first_type_info == .Enum);
     std.debug.assert(Second == c.EcsEntity or second_type_info == .Type or second_type_info == .Enum);
 
-    const first_id = if (First == c.EcsEntity) first else ecs_id(first);
-    const second_id = if (Second == c.EcsEntity) second else ecs_id(second);
+    const first_id = if (First == c.EcsEntity) first else if (first_type_info == .Enum) ecs_id(First) else ecs_id(first);
+    const second_id = if (Second == c.EcsEntity) second else if (second_type_info == .Enum) ecs_id(Second) else ecs_id(second);
     return c.ecs_make_pair(first_id, second_id);
 }
 
@@ -170,8 +170,6 @@ pub fn ecs_add(world: *c.EcsWorld, entity: c.EcsEntity, t: anytype) void {
     } else {
         _ = c.ecs_set_id(world, entity, ecs_id(T), @sizeOf(T), &t);
     }
-
-    
 }
 
 /// Adds the pair to the entity.
@@ -182,7 +180,7 @@ pub fn ecs_add_pair(world: *c.EcsWorld, entity: c.EcsEntity, first: anytype, sec
     const First = @TypeOf(first);
     const first_type_info = @typeInfo(First);
 
-    if (first_type_info == .Enum) { 
+    if (first_type_info == .Enum) {
         _ = c.ecs_set_id(world, entity, ecs_pair(first, second), @sizeOf(First), &first);
     } else c.ecs_add_id(world, entity, ecs_pair(first, second));
 }
