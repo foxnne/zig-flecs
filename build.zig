@@ -72,7 +72,7 @@ pub const pkg = std.build.Pkg{
 
 pub fn link(exe: *std.build.LibExeObjStep, target: std.zig.CrossTarget) void {
     exe.linkLibC();
-    exe.addIncludeDir(thisDir() ++ "/src/c");
+    exe.addIncludePath(thisDir() ++ "/src/c");
 
     if (target.isWindows()) {
         exe.linkSystemLibrary("Ws2_32");
