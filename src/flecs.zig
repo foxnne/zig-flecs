@@ -16,8 +16,7 @@ pub fn BaseType(comptime T: type) type {
             else => {},
         },
         .Optional => |info| return BaseType(info.child),
-        .Enum,
-        .Struct => return T,
+        .Enum, .Struct => return T,
         else => {},
     }
     @compileError("Expected pointer or optional pointer, found '" ++ @typeName(T) ++ "'");
@@ -306,7 +305,7 @@ pub fn ecs_get_mut(world: *c.EcsWorld, entity: c.EcsEntity, comptime T: type) ?*
 /// First = type
 /// second = type or entity
 pub fn ecs_get_pair(world: *c.EcsWorld, entity: c.EcsEntity, comptime First: type, second: anytype) ?*const First {
-    std.debug.assert(@typeInfo(First) == .Struct or @typeInfo(First) == .Type);
+    std.debug.assert(@typeInfo(First) == .Struct or @typeInfo(First) == .Type or @typeInfo(First) == .Enum);
 
     const Second = @TypeOf(second);
     const second_type_info = @typeInfo(Second);
