@@ -1,7 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
-const current_version = "3.0.4";
+const current_version = "3.1.1";
 
 pub fn build(b: *std.build.Builder) anyerror!void {
     const target = b.standardTargetOptions(.{});
@@ -62,7 +62,7 @@ fn getAllExamples(b: *std.build.Builder, root_directory: []const u8) [][2][]cons
 
     recursor(b.allocator, root_directory, &list);
 
-    return list.toOwnedSlice();
+    return list.toOwnedSlice() catch unreachable;
 }
 
 pub const pkg = std.build.Pkg{

@@ -56,6 +56,7 @@ pub const EcsTerm = extern struct {
     id_flags: EcsId,
     name: [*c]u8,
     field_index: i32,
+    idr: ?*EcsIdRecord,
     move: bool,
 };
 
@@ -81,6 +82,7 @@ pub const EcsVar = extern struct {
 pub const EcsTableRecord = opaque {};
 
 pub const EcsRecord = extern struct {
+    idr: ?*EcsIdRecord,
     table: ?*EcsTable,
     row: u32,
 };
@@ -195,14 +197,15 @@ const union_unnamed_1 = extern union {
     worker: EcsWorkerIter,
 };
 
+pub const EcsStackPage = opaque {};
+
+pub const EcsStackCursor = extern struct {
+    cur: ?*EcsStackPage,
+    sp: i16,
+};
+
 pub const EcsIterCache = extern struct {
-    ids: [4]EcsId,
-    columns: [4]i32,
-    sources: [4]EcsEntity,
-    sizes: [4]EcsSize,
-    ptrs: [4]?*anyopaque,
-    match_indices: [4]i32,
-    variables: [4]EcsVar,
+    stack_cursor: EcsStackCursor,
     used: EcsFlags8,
     allocated: EcsFlags8,
 };
@@ -278,6 +281,8 @@ pub const EcsIterable = extern struct {
     init: ?EcsIterInitAction,
 };
 
+pub const EcsPolyDtor = ?*const fn (?*EcsPoly) callconv(.C) void;
+
 pub const EcsFilter = extern struct {
     hdr: EcsHeader,
     terms: [*c]EcsTerm,
@@ -286,9 +291,11 @@ pub const EcsFilter = extern struct {
     owned: bool,
     terms_owned: bool,
     flags: EcsFlags32,
-    name: [*c]u8,
     variable_names: [1][*c]u8,
+    entity: EcsEntity,
+    world: ?*EcsWorld,
     iterable: EcsIterable,
+    dtor: EcsPolyDtor,
 };
 
 pub const EcsFilterDesc = extern struct {
@@ -349,6 +356,9 @@ pub const EcsGroupByAction = if (builtin.zig_backend == .stage1) fn (
 
 pub const EcsCtxFree = if (builtin.zig_backend == .stage1) fn (?*anyopaque) callconv(.C) void else *const fn (?*anyopaque) callconv(.C) void;
 
+pub const EcsGroupCreateAction = ?*const fn (?*EcsWorld, u64, ?*anyopaque) callconv(.C) ?*anyopaque;
+pub const EcsGroupDeleteAction = ?*const fn (?*EcsWorld, u64, ?*anyopaque, ?*anyopaque) callconv(.C) void;
+
 pub const EcsQueryDesc = extern struct {
     _canary: i32,
     filter: EcsFilterDesc,
@@ -357,10 +367,11 @@ pub const EcsQueryDesc = extern struct {
     sort_table: EcsSortTableAction,
     group_by_id: EcsId,
     group_by: EcsGroupByAction,
+    on_group_create: EcsGroupCreateAction,
+    on_group_delete: EcsGroupDeleteAction,
     group_by_ctx: ?*anyopaque,
     group_by_ctx_free: ?EcsCtxFree,
     parent: ?*EcsQuery,
-    entity: EcsEntity,
 };
 
 pub const EcsRunAction = if (builtin.zig_backend == .stage1) fn (*EcsIter) callconv(.C) void else *const fn (*EcsIter) callconv(.C) void;
@@ -461,10 +472,24 @@ pub const EcsEventDesc = extern struct {
     other_table: ?*EcsTable,
     offset: i32,
     count: i32,
+    entity: EcsEntity,
     param: ?*const anyopaque,
     observable: ?*EcsPoly,
-    table_event: bool,
-    relationship: EcsEntity,
+    flags: EcsFlags32,
+};
+
+pub const EcsCmd = extern struct {
+    add_count: i64,
+    remove_count: i64,
+    delete_count: i64,
+    clear_count: i64,
+    set_count: i64,
+    get_mut_count: i64,
+    modified_count: i64,
+    other_count: i64,
+    discard_count: i64,
+    batched_entity_count: i64,
+    batched_command_count: i64,
 };
 
 pub const EcsWorldInfo = extern struct {
@@ -478,9 +503,21 @@ pub const EcsWorldInfo = extern struct {
     target_fps: f32,
     frame_time_total: f32,
     system_time_total: f32,
+    emit_time_total: f32,
     merge_time_total: f32,
     world_time_total: f32,
     world_time_total_raw: f32,
+    rematch_time_total: f32,
+    frame_count_total: i64,
+    merge_count_total: i64,
+    rematch_count_total: i64,
+    id_create_total: i64,
+    id_delete_total: i64,
+    table_create_total: i64,
+    table_delete_total: i64,
+    pipeline_build_count_total: i64,
+    systems_ran_frame: i64,
+    observers_ran_frame: i64,
     frame_count_total: i32,
     merge_count_total: i32,
     id_create_total: i32,
@@ -500,14 +537,7 @@ pub const EcsWorldInfo = extern struct {
     empty_table_count: i32,
     table_record_count: i32,
     table_storage_count: i32,
-    new_count: i32,
-    bulk_new_count: i32,
-    delete_count: i32,
-    clear_count: i32,
-    add_count: i32,
-    remove_count: i32,
-    set_count: i32,
-    discard_count: i32,
+    cmd: EcsCmd,
     name_prefix: [*c]const u8,
 };
 
@@ -556,6 +586,83 @@ pub const EcsStrBuf = extern struct {
     length: i32,
 };
 
+pub const EcsMapKey = u64;
+
+pub const EcsBucketEntry = extern struct {
+    next: [*c]EcsBucketEntry,
+    key: EcsMapKey,
+};
+
+pub const EcsBucket = extern struct {
+    first: [*c]EcsBucketEntry,
+};
+
+pub const EcsBlockAllocatorChunkHeader = extern struct {
+    next: [*c]EcsBlockAllocatorChunkHeader,
+};
+
+pub const EcsBlockAllocatorBlock = extern struct {
+    memory: ?*anyopaque,
+    next: [*c]EcsBlockAllocatorBlock,
+};
+
+pub const EcsBlockAllocator = extern struct {
+    head: [*c]EcsBlockAllocatorChunkHeader,
+    block_head: [*c]EcsBlockAllocatorBlock,
+    block_tail: [*c]EcsBlockAllocatorBlock,
+    chunk_size: i32,
+    data_size: i32,
+    chunks_per_block: i32,
+    block_size: i32,
+    alloc_count: i32,
+};
+
+pub const EcsSparse = extern struct {
+    dense: ?*EcsVector,
+    chunks: ?*EcsVector,
+    size: EcsSize,
+    count: i32,
+    max_id_local: u64,
+    max_id: [*c]u64,
+    allocator: [*c]EcsAllocator,
+    chunk_allocator: [*c]EcsBlockAllocator,
+};
+
+pub const EcsAllocator = extern struct {
+    chunks: EcsBlockAllocator,
+    sizes: EcsSparse,
+};
+
+pub const EcsMap = extern struct {
+    buckets: [*c]EcsBucket,
+    buckets_end: [*c]EcsBucket,
+    elem_size: i16,
+    bucket_shift: u8,
+    shared_allocator: bool,
+    bucket_count: i32,
+    count: i32,
+    allocator: [*c]EcsAllocator,
+    entry_allocator: [*c]EcsBlockAllocator,
+};
+
+pub const EcsEventIdRecord = opaque {};
+pub const EcsEventRecord = extern struct {
+    any: ?*EcsEventIdRecord,
+    wildcard: ?*EcsEventIdRecord,
+    wildcard_pair: ?*EcsEventIdRecord,
+    event_ids: EcsMap,
+    event: EcsEntity,
+};
+
+pub const EcsObservable = extern struct {
+    on_add: EcsEventRecord,
+    on_remove: EcsEventRecord,
+    on_set: EcsEventRecord,
+    un_set: EcsEventRecord,
+    on_wildcard: EcsEventRecord,
+    events: [*c]EcsSparse,
+};
+
 pub const EcsObserverDesc = extern struct {
     _canary: i32,
     entity: EcsEntity,
@@ -601,6 +708,7 @@ pub const EcsAppDesc = extern struct {
     target_fps: f32,
     delta_time: f32,
     threads: i32,
+    frames: i32,
     enable_rest: bool,
     enable_monitor: bool,
     init: ?EcsAppInitAction,
@@ -709,6 +817,8 @@ pub extern fn ecs_get_lookup_path(world: ?*const EcsWorld) [*c]EcsEntity;
 pub extern fn ecs_term_iter(world: ?*const EcsWorld, term: [*c]EcsTerm) EcsIter;
 pub extern fn ecs_term_chain_iter(it: [*c]const EcsIter, term: [*c]EcsTerm) EcsIter;
 pub extern fn ecs_term_next(it: [*c]EcsIter) bool;
+pub extern fn ecs_children(world: ?*const EcsWorld, parent: EcsEntity) EcsIter;
+pub extern fn ecs_children_next(it: [*c]EcsIter) bool;
 pub extern fn ecs_term_id_is_set(id: [*c]const EcsTermId) bool;
 pub extern fn ecs_term_is_initialized(term: [*c]const EcsTerm) bool;
 pub extern fn ecs_term_match_this(term: [*c]const EcsTerm) bool;
@@ -722,7 +832,7 @@ pub extern fn ecs_id_is_pair(id: EcsId) bool;
 pub extern fn ecs_id_is_wildcard(id: EcsId) bool;
 pub extern fn ecs_id_is_valid(world: ?*const EcsWorld, id: EcsId) bool;
 pub extern fn ecs_id_get_flags(world: ?*const EcsWorld, id: EcsId) EcsFlags32;
-pub extern fn ecs_filter_init(world: ?*const EcsWorld, desc: [*c]const EcsFilterDesc) [*c]EcsFilter;
+pub extern fn ecs_filter_init(world: ?*EcsWorld, desc: [*c]const EcsFilterDesc) [*c]EcsFilter;
 pub extern fn ecs_filter_fini(filter: [*c]EcsFilter) void;
 pub extern fn ecs_filter_finalize(world: ?*const EcsWorld, filter: [*c]EcsFilter) c_int;
 pub extern fn ecs_filter_find_this_var(filter: [*c]const EcsFilter) i32;
@@ -733,6 +843,8 @@ pub extern fn ecs_filter_chain_iter(it: [*c]const EcsIter, filter: [*c]const Ecs
 pub extern fn ecs_filter_pivot_term(world: ?*const EcsWorld, filter: [*c]const EcsFilter) i32;
 pub extern fn ecs_filter_next(it: [*c]EcsIter) bool;
 pub extern fn ecs_filter_next_instanced(it: [*c]EcsIter) bool;
+pub extern fn ecs_query_next_table(iter: [*c]EcsIter) bool;
+pub extern fn ecs_query_populate(iter: [*c]EcsIter) void;
 pub extern fn ecs_filter_move(dst: [*c]EcsFilter, src: [*c]EcsFilter) void;
 pub extern fn ecs_filter_copy(dst: [*c]EcsFilter, src: [*c]const EcsFilter) void;
 pub extern fn ecs_query_init(world: ?*EcsWorld, desc: [*c]const EcsQueryDesc) ?*EcsQuery;
@@ -761,6 +873,7 @@ pub extern fn ecs_iter_next(it: [*c]EcsIter) bool;
 pub extern fn ecs_iter_fini(it: [*c]EcsIter) void;
 pub extern fn ecs_iter_count(it: [*c]EcsIter) i32;
 pub extern fn ecs_iter_is_true(it: [*c]EcsIter) bool;
+pub extern fn ecs_iter_first(it: [*c]EcsIter) EcsEntity;
 pub extern fn ecs_iter_set_var(it: [*c]EcsIter, var_id: i32, entity: EcsEntity) void;
 pub extern fn ecs_iter_set_var_as_table(it: [*c]EcsIter, var_id: i32, table: ?*const EcsTable) void;
 pub extern fn ecs_iter_set_var_as_range(it: [*c]EcsIter, var_id: i32, range: [*c]const EcsTableRange) void;
@@ -809,6 +922,7 @@ pub extern fn ecs_search_offset(world: ?*const EcsWorld, table: ?*const EcsTable
 pub extern fn ecs_search_relation(world: ?*const EcsWorld, table: ?*const EcsTable, offset: i32, id: EcsId, rel: EcsEntity, flags: EcsFlags32, subject_out: [*c]EcsEntity, id_out: [*c]EcsId, tr_out: [*c]?*EcsTableRecord) i32;
 pub extern fn ecs_table_get_type(table: ?*const EcsTable) [*c]const EcsType;
 pub extern fn ecs_table_get_column(table: ?*EcsTable, index: i32) ?*anyopaque;
+pub extern fn ecs_table_get_index(world: ?*const EcsWorld, table: ?*const EcsTable, id: EcsId) i32;
 pub extern fn ecs_table_get_storage_table(table: ?*const EcsTable) ?*EcsTable;
 pub extern fn ecs_table_type_to_storage_index(table: ?*const EcsTable, index: i32) i32;
 pub extern fn ecs_table_storage_to_type_index(table: ?*const EcsTable, index: i32) i32;
@@ -889,7 +1003,7 @@ pub extern fn ecs_parse_token(name: [*c]const u8, expr: [*c]const u8, ptr: [*c]c
 pub extern fn ecs_parse_term(world: ?*const EcsWorld, name: [*c]const u8, expr: [*c]const u8, ptr: [*c]const u8, term_out: [*c]EcsTerm) [*c]u8;
 
 pub const Constants = struct {
-    pub const ECS_ID_FLAGS_MASK: u64 = @as(u64, 0xFF) << 56;
+    pub const ECS_ID_FLAGS_MASK: u64 = @as(u64, 0xFF) << 60;
     pub const ECS_COMPONENT_MASK: u64 = ~ECS_ID_FLAGS_MASK;
 
     pub extern const ECS_PAIR: EcsId;
