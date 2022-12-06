@@ -256,9 +256,9 @@ pub const EcsIter = extern struct {
     flags: EcsFlags32,
     interrupted_by: EcsEntity,
     priv: EcsIterPrivate,
-    next: ?EcsIterNextAction,
-    callback: ?EcsIterAction,
-    fini: ?EcsIterFiniAction,
+    next: if (builtin.zig_backend == .stage1) ?fn ([*c]EcsIter) callconv(.C) bool else ?*const fn ([*c]EcsIter) callconv(.C) bool,
+    callback: if (builtin.zig_backend == .stage1) ?fn (*EcsIter) callconv(.C) void else ?*const fn (*EcsIter) callconv(.C) void,
+    fini: if (builtin.zig_backend == .stage1) ?fn ([*c]EcsIter) callconv(.C) void else ?*const fn ([*c]EcsIter) callconv(.C) void,
     chain_it: [*c]EcsIter,
 };
 
