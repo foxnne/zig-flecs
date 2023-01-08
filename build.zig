@@ -65,17 +65,17 @@ fn getAllExamples(b: *std.build.Builder, root_directory: []const u8) [][2][]cons
     return list.toOwnedSlice() catch unreachable;
 }
 
-var cached_pkg: ?std.build.Pkg = null;
-
 pub fn pkg(b: *std.build.Builder) std.build.Pkg {
-    if (cached_pkg == null) {
-        cached_pkg = .{
+    const cached_result = struct {
+        var pkg: ?std.build.Pkg = null;
+    };
+    if (cached_result.pkg == null) {
+        cached_result.pkg = .{
             .name = "flecs",
             .source = .{ .path = projectPath(b, "src/flecs.zig") },
         };
     }
-
-    return cached_pkg.?;
+    return cached_result.pkg.?;
 }
 
 pub fn link(exe: *std.build.LibExeObjStep, target: std.zig.CrossTarget) void {
@@ -89,44 +89,43 @@ pub fn link(exe: *std.build.LibExeObjStep, target: std.zig.CrossTarget) void {
     exe.addCSourceFile(projectPath(exe.builder, "src/c/flecs.c"), &.{""});
 }
 
-const unresolved_dir = (struct {
-    inline fn unresolvedDir() []const u8 {
+const projectPath = (struct {
+    inline fn projectRoot() []const u8 {
         return comptime std.fs.path.dirname(@src().file) orelse ".";
     }
-}).unresolvedDir();
 
-fn thisDir(allocator: std.mem.Allocator) []const u8 {
-    if (comptime unresolved_dir[0] == '/') {
-        return unresolved_dir;
+    inline fn projectPath(allocator: anytype, comptime suffix: []const u8) []const u8 {
+        if (@TypeOf(allocator) == std.mem.Allocator) {
+            return resolvePath(allocator, suffix.len, suffix[0..suffix.len].*);
+        } else {
+            return resolvePath(allocator.allocator, suffix.len, suffix[0..suffix.len].*);
+        }
     }
 
-    const cached_dir = &(struct {
-        var cached_dir: ?[]const u8 = null;
-    }).cached_dir;
-
-    if (cached_dir.* == null) {
-        cached_dir.* = std.fs.cwd().realpathAlloc(allocator, unresolved_dir) catch unreachable;
+    fn cwd(allocator: std.mem.Allocator) []const u8 {
+        const cached_result = struct {
+            var resolved_path: ?[]const u8 = null;
+        };
+        if (cached_result.resolved_path == null) {
+            cached_result.resolved_path = std.process.getCwdAlloc(allocator) catch unreachable;
+        }
+        return cached_result.resolved_path.?;
     }
 
-    return cached_dir.*.?;
-}
-
-inline fn projectPath(b: *std.build.Builder, comptime suffix: []const u8) []const u8 {
-    return projectPathInternal(b.allocator, suffix.len, suffix[0..suffix.len].*);
-}
-
-fn projectPathInternal(allocator: std.mem.Allocator, comptime len: usize, comptime suffix: [len]u8) []const u8 {
-    if (comptime unresolved_dir[0] == '/') {
-        return unresolved_dir ++ "/" ++ @as([]const u8, &suffix);
+    fn resolvePath(allocator: std.mem.Allocator, comptime len: usize, comptime suffix: [len]u8) []const u8 {
+        const project_path = projectRoot() ++ "/" ++ suffix[0..];
+        if (comptime std.fs.path.isAbsolute(project_path)) {
+            return project_path;
+        }
+        const cached_result = struct {
+            var resolved_path: ?[]const u8 = null;
+        };
+        if (cached_result.resolved_path == null) {
+            cached_result.resolved_path = std.fs.path.resolve(
+                allocator,
+                &.{ cwd(allocator), project_path },
+            ) catch unreachable;
+        }
+        return cached_result.resolved_path.?;
     }
-
-    const cached_dir = &(struct {
-        var cached_dir: ?[]const u8 = null;
-    }).cached_dir;
-
-    if (cached_dir.* == null) {
-        cached_dir.* = std.fs.path.resolve(allocator, &.{ thisDir(allocator), &suffix }) catch unreachable;
-    }
-
-    return cached_dir.*.?;
-}
+}).projectPath;
