@@ -32,16 +32,20 @@ pub fn ecs_cast_mut(comptime T: type, val: ?*anyopaque) *T {
     return @ptrCast(*T, @alignCast(@alignOf(T), val));
 }
 
-/// Returns a pointer to the EcsId of the given type.
-pub fn ecs_id_handle(comptime T: type) *c.EcsId {
+fn IdHandle(comptime T: type) type {
     _ = T;
-    return &(struct {
-        pub var handle: c.EcsId = std.math.maxInt(c.EcsId);
-    }.handle);
+    return struct {
+        var handle: c.EcsId = 0;
+    };
+}
+
+/// Returns a pointer to the EcsId of the given type.
+pub inline fn ecs_id_handle(comptime T: type) *c.EcsId {
+    return comptime &IdHandle(T).handle;
 }
 
 /// Returns the id assigned to the given type.
-pub fn ecs_id(comptime T: type) c.EcsId {
+pub inline fn ecs_id(comptime T: type) c.EcsId {
     return ecs_id_handle(T).*;
 }
 
@@ -78,17 +82,24 @@ pub fn ecs_pair(first: anytype, second: anytype) c.EcsId {
 pub fn ecs_component(world: *c.EcsWorld, comptime T: type) void {
     std.debug.assert(@typeInfo(T) == .Struct or @typeInfo(T) == .Type or @typeInfo(T) == .Enum);
 
-    var handle = ecs_id_handle(T);
-    if (handle.* < std.math.maxInt(c.EcsId)) return;
+    const handle = ecs_id_handle(T);
+
+    const entity_desc = std.mem.zeroInit(c.EcsEntityDesc, .{
+        .name = @typeName(T),
+        .id = handle.*,
+        .use_low_id = @sizeOf(T) > 0,
+    });
 
     if (@sizeOf(T) == 0) {
-        var desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
-        handle.* = c.ecs_entity_init(world, &desc);
+        handle.* = c.ecs_entity_init(world, &entity_desc);
     } else {
-        var entity_desc = std.mem.zeroInit(c.EcsEntityDesc, .{ .name = @typeName(T) });
-        var component_desc = std.mem.zeroInit(c.EcsComponentDesc, .{ .entity = c.ecs_entity_init(world, &entity_desc) });
-        component_desc.type.alignment = @alignOf(T);
-        component_desc.type.size = @sizeOf(T);
+        const component_desc = std.mem.zeroInit(c.EcsComponentDesc, .{
+            .entity = c.ecs_entity_init(world, &entity_desc),
+            .type = .{
+                .alignment = @alignOf(T),
+                .size = @sizeOf(T),
+            },
+        });
         handle.* = c.ecs_component_init(world, &component_desc);
     }
 }
