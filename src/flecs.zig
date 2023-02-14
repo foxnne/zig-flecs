@@ -87,21 +87,18 @@ pub fn ecs_component(world: *c.EcsWorld, comptime T: type) void {
     const entity_desc = std.mem.zeroInit(c.EcsEntityDesc, .{
         .name = @typeName(T),
         .id = handle.*,
-        .use_low_id = @sizeOf(T) > 0,
+        .use_low_id = true,
     });
 
-    if (@sizeOf(T) == 0) {
-        handle.* = c.ecs_entity_init(world, &entity_desc);
-    } else {
-        const component_desc = std.mem.zeroInit(c.EcsComponentDesc, .{
-            .entity = c.ecs_entity_init(world, &entity_desc),
-            .type = .{
-                .alignment = @alignOf(T),
-                .size = @sizeOf(T),
-            },
-        });
-        handle.* = c.ecs_component_init(world, &component_desc);
-    }
+    const component_desc = std.mem.zeroInit(c.EcsComponentDesc, .{
+        .entity = c.ecs_entity_init(world, &entity_desc),
+        .type = .{
+            .alignment = @alignOf(T),
+            .size = @sizeOf(T),
+        },
+    });
+
+    handle.* = c.ecs_component_init(world, &component_desc);
 }
 
 /// Registers a new system with the world run during the given phase.

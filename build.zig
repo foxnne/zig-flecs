@@ -1,30 +1,56 @@
 const builtin = @import("builtin");
 const std = @import("std");
 
+const new_build_system = @hasDecl(std, "Build");
+const Build = if (new_build_system) std.Build else std.build.Builder;
+const CompileStep = if (new_build_system) Build.CompileStep else std.build.LibExeObjStep;
+const FileSource = if (new_build_system) Build.FileSource else std.build.FileSource;
+
 const current_version = "3.1.1";
 
-pub fn build(b: *std.build.Builder) anyerror!void {
+pub fn build(b: *Build) anyerror!void {
     const target = b.standardTargetOptions(.{});
 
-    const examples = getAllExamples(b, "examples");
+    const examples = getAllExamples(b, b.pathFromRoot("examples"));
 
     const examples_step = b.step("all_examples", "build all examples");
     b.default_step.dependOn(examples_step);
+
+    if (new_build_system) {
+        b.addModule(.{
+            .name = "flecs",
+            .source_file = FileSource.relative("src/flecs.zig"),
+        });
+    }
 
     for (examples) |example| {
         const name = example[0];
         const source = example[1];
 
-        var exe = b.addExecutable(name, source);
-        exe.setTarget(target);
-        exe.setOutputDir("zig-cache/bin");
+        const exe = if (new_build_system) blk: {
+            const exe = b.addExecutable(.{
+                .name = name,
+                .root_source_file = .{ .path = source },
+                .target = target,
+            });
+            exe.addModule("flecs", b.modules.get("flecs").?);
 
+            break :blk exe;
+        } else blk: {
+            const exe = b.addExecutable(name, source);
+            exe.setTarget(target);
+            exe.addPackage(pkg);
+
+            break :blk exe;
+        };
+
+        exe.setOutputDir("zig-cache/bin");
         link(exe, target);
-        exe.addPackage(pkg);
 
         const run_cmd = exe.run();
-        const exe_step = b.step(name, b.fmt("run {s}.zig", .{name}));
+        const exe_step = b.step(name, b.fmt("run {s}.zig", .{ name }));
         exe_step.dependOn(&run_cmd.step);
+        examples_step.dependOn(&exe.step);
     }
 
     // only mac and linux get the update_flecs command
@@ -35,7 +61,7 @@ pub fn build(b: *std.build.Builder) anyerror!void {
     }
 }
 
-fn getAllExamples(b: *std.build.Builder, root_directory: []const u8) [][2][]const u8 {
+fn getAllExamples(b: *Build, root_directory: []const u8) [][2][]const u8 {
     var list = std.ArrayList([2][]const u8).init(b.allocator);
 
     const recursor = struct {
@@ -67,10 +93,20 @@ fn getAllExamples(b: *std.build.Builder, root_directory: []const u8) [][2][]cons
 
 pub const pkg = std.build.Pkg{
     .name = "flecs",
-    .source = .{ .path = thisDir() ++ "/src/flecs.zig" },
+    .source = .{
+        .path = thisDir() ++ "/src/flecs.zig",
+    },
 };
 
-pub fn link(exe: *std.build.LibExeObjStep, target: std.zig.CrossTarget) void {
+pub fn module(b: *std.Build) *std.Build.Module {
+    return b.createModule(.{
+        .source_file = .{
+            .path = thisDir() ++ "/src/flecs.zig",
+        },
+    });
+}
+
+pub fn link(exe: *CompileStep, target: std.zig.CrossTarget) void {
     exe.linkLibC();
     exe.addIncludePath(thisDir() ++ "/src/c");
 
