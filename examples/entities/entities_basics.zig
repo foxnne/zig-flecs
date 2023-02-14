@@ -128,7 +128,7 @@ pub fn main() !void {
     }
 
     flecs.ecs_set_pair(world, alice, Likes{ .amount = 10 }, bob);
-    flecs.ecs_set_pair_second(world, alice, Likes, &Apples{ .count = 4 });
+    flecs.ecs_set_pair(world, alice, Likes{ .amount = 4 }, Apples);
 
     if (flecs.ecs_get_pair(world, alice, Likes, bob)) |b| {
         std.log.debug("How much does Alice like bob? {d}", .{b.amount});
