@@ -44,11 +44,13 @@ pub fn build(b: *Build) anyerror!void {
             break :blk exe;
         };
 
+        exe.setOutputDir("zig-cache/bin");
         link(exe, target);
 
         const run_cmd = exe.run();
         const exe_step = b.step(name, b.fmt("run {s}.zig", .{ name }));
         exe_step.dependOn(&run_cmd.step);
+        examples_step.dependOn(&exe.step);
     }
 
     // only mac and linux get the update_flecs command
